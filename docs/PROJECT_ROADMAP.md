@@ -8,18 +8,25 @@ Reorder it when playtests or owner decisions change the plan; record why.
 
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
-- **Engine confidence:** six Godot headless scripts previously passed 413 checks.
-  `PokerSession` exists and is tested; the current table UI still uses
+- **Engine confidence:** `PokerSession` exists and has headless coverage. A
+  previous roadmap snapshot records 413 checks; the latest implementation
+  handoff reports 403 existing + 66 new = 469 passing. Reconcile that baseline
+  count on the next requested test run. The live table still uses
   `PokerGameState` directly and is heads-up only.
-- **UI:** the owner played the first table version and called the UI basic. A
-  UI specialist created `docs/UI_DESIGN_SYSTEM.md` and applied a first refinement
-  pass: reusable cards, dealer/blind/turn states, contextual prices, legal wager
-  range, and compact action history. Godot startup was checked after this pass;
-  owner playtest and small-window layout review remain.
+- **UI:** the owner playtested the first refinement and found the table still
+  wastes space, text is too small, and content overflows narrow windows. An
+  interim responsive-layout pass has been checked with viewport bounds, but
+  the final rendered appearance still needs a cohesive redesign.
+  The owner requested a larger, mobile-adaptive design with names beside cards,
+  visible chip stacks and pot, card/chip animations and sound, and a smooth
+  wager slider with pot-fraction and all-in presets. UI design steward is
+  preparing a reusable brief; retain the AI's aggressive style.
 - **Hardware:** the project uses Godot's Compatibility renderer after Vulkan
   pipeline failures on the owner's Intel Mac.
-- **World/economy:** Frontier's region, town, ledger, debt, and property modules
-  have not been ported into the Godot runtime.
+- **World/economy:** the first town-slice data/services landed in Maverick at
+  `462b2a6`: wallet, town state, table reputation, economy bridge, and basic
+  save/load. These are isolated services; the live poker table does not yet
+  call them.
 - **Integration decisions:** the owner approved 2D for the first slice, the
   New Canaan → Split River Valley → Devil's Draw hierarchy, and separate table
   bankroll/wallet/explicit debt. Product title and exact currency units,
@@ -28,22 +35,22 @@ Reorder it when playtests or owner decisions change the plan; record why.
   refinement are uncommitted at this snapshot. Frontier now has local commits
   `adfa16d` and `b6c8af8` with a clean worktree and salvage map; it has no Git
   remote yet, so it is not backed up off-device.
-- **Integration plan:** Frontier's proposed town/poker/economy slice is recorded
-  in commits `6420dba` and `f1180e4`. The revised design is approved for
-  implementation in Maverick; implementation status/evidence is pending the
-  Frontier agent's next handoff.
+- **Integration plan:** the approved Frontier design (`6420dba`, revised in
+  `f1180e4`) has been translated into GDScript foundations in `462b2a6`. The
+  end-to-end runtime loop remains to be wired and playtested.
 
 ## Immediate focus
 
-1. Let the Frontier agent implement the approved town-slice design in Maverick.
-   Coordinate file ownership and avoid overlapping edits; review its handoff,
-   tests, and save/load behavior before marking the milestone complete.
-2. In parallel, have the owner play several hands with the refined table and
-   report confusing or engaging moments. Review at a smaller laptop window
-   before more decoration.
-3. Once the agent's code lands, integrate and play the end-to-end Rusty Spur
-   loop: buy in, play multiple hands, see town/reputation updates, leave/cash
-   out, save, reload, and confirm persistence. Keep exchange rate configurable.
+1. Wire the committed services into the playable table lifecycle: buy-in funds
+   the player's `PokerSession` stack, hand-start/settlement update town and
+   reputation exactly once, and leaving cashes out exactly once. The current
+   `src/poker/table.gd` still uses `PokerGameState` directly and fixed stacks,
+   so the new economy is not yet player-facing.
+2. Expose town/reputation changes and save/load in the game flow. Keep the
+   exchange rate configurable; isolated save-service tests do not prove that a
+   player can save and resume the slice.
+3. Implement the cohesive UI pass from `docs/UI_DESIGN_SYSTEM.md` after the
+   runtime loop contracts are stable. Preserve the aggressive AI baseline.
 4. Add an off-device remote backup for Frontier if it should survive device
    loss. It currently has local Git history only.
 
@@ -57,23 +64,25 @@ system/polish pass.
 
 **Exit when:** the owner can play several hands on their machine (including an
 all-in/showdown); outcomes, legal action prices, and private-card visibility
-are clear; the owner has reviewed the refined UI. Multiway AI is not required
-to start the world slice.
+are clear; the redesigned UI is comfortably readable and adapts to small
+screens. Multiway AI is not required to start the world slice.
 
-### 2. One town, one money loop, one lasting consequence — **design approved; implementation pending**
+### 2. One town, one money loop, one lasting consequence — **foundation committed; runtime integration pending**
 
-Implement the approved Rusty Spur loop in Maverick. Keep the player's stack in
-`PokerSession` across hands; debit wallet on buy-in and cash out on leaving.
-Each settled hand adds one poker-volume point and changes prosperity by the
-sign of the player's net stack change. Crossing +3/-3 changes town state and
-resets prosperity. Persist cumulative Rusty Spur net results and show the
+The wallet, town state, table reputation, economy bridge, and save/load service
+are implemented and committed. Next, connect them to the live table so a player
+can buy in, keep the stack in `PokerSession` across hands, and cash out once on
+leaving. Each settled hand should add one poker-volume point and adjust
+prosperity by the sign of net stack change; crossing +3/-3 changes town state
+and resets prosperity. Persist cumulative Rusty Spur net results and show the
 derived reputation label. Keep currency exchange configurable and debt out of
 ordinary poker settlement.
 
-**Exit when:** a player can buy in, play several hands, leave and cash out, see
-the Rusty Spur town state/reputation respond, and save/load preserves wallet,
-town counters/state, and reputation. The player can understand what caused
-each change. Loans, property, and NPC memory are out of scope for this slice.
+**Exit when:** the player-facing table uses the persistent wallet and
+`PokerSession` across multiple hands; leaving cashes out once; town and
+reputation changes are visible; save/load restores the same playable state; and
+the player can understand what caused each change. Loans, property, and NPC
+memory are out of scope for this slice.
 
 ### 3. One remembered rival with fair tells — **not started**
 

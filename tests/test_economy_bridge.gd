@@ -16,6 +16,7 @@ func _init() -> void:
 	print("=== test_economy_bridge.gd ===")
 	_test_buy_in_and_losing_hand()
 	_test_winning_hand_and_cash_out()
+	_test_double_cash_out_guarded()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -123,3 +124,31 @@ func _test_winning_hand_and_cash_out() -> void:
 	var cashed := bridge.cash_out()
 	_check(cashed == 550, "cash_out returns 550 (got %d)" % cashed)
 	_check(wallet.get_balance() == 1050, "wallet after cash_out (got %d)" % wallet.get_balance())
+
+func _test_double_cash_out_guarded() -> void:
+	var wallet := Wallet.new()
+	wallet.balance = 100
+	var session := PokerSession.new([200, 300], 0, 10, 20)
+	var town := TownState.new()
+	var rep := TableReputation.new()
+	var bridge := EconomyBridge.new()
+	bridge.session = session
+	bridge.wallet = wallet
+	bridge.town_state = town
+	bridge.table_reputation = rep
+	bridge.player_seat = 0
+
+	bridge.hand_started()
+	var dealt := session.start_hand()
+	_check(dealt, "hand dealt")
+	bridge.hand_settled()
+
+	# First cash-out credits the wallet
+	var first := bridge.cash_out()
+	_check(first == 190, "first cash_out returns session stack (got %d)" % first)
+	_check(wallet.get_balance() == 290, "wallet after first cash_out (got %d)" % wallet.get_balance())
+
+	# Second cash-out is a no-op
+	var second := bridge.cash_out()
+	_check(second == 0, "second cash_out returns 0 (got %d)" % second)
+	_check(wallet.get_balance() == 290, "wallet unchanged by double cash_out (got %d)" % wallet.get_balance())

@@ -11,6 +11,7 @@ var player_seat
 
 var _stack_at_hand_start: int = 0
 var _hand_in_progress: bool = false
+var _cashed_out: bool = false
 
 ## Record the player's session stack at the start of a hand. Call this BEFORE
 ## PokerSession.start_hand() / start_next_hand(), so the recorded stack is the
@@ -32,8 +33,12 @@ func hand_settled() -> void:
 	_hand_in_progress = false
 
 ## Cash out the player's remaining session stack to the wallet. Returns the
-## amount cashed out. Call once when the player leaves the table.
+## amount cashed out. Call once when the player leaves the table. Safe to call
+## repeatedly — only the first call credits the wallet.
 func cash_out() -> int:
+	if _cashed_out:
+		return 0
+	_cashed_out = true
 	var remaining := int(session.stacks()[player_seat])
 	wallet.cash_out(remaining)
 	_hand_in_progress = false

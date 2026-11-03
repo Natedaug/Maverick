@@ -204,3 +204,24 @@ cumulative value (or sufficient data to derive it) and derive the label from
 its sign; zero remains “unknown.” Poker volume and prosperity belong to the
 Rusty Spur town state. Keep the configured exchange rate explicit and do not
 select a canonical rate as part of this implementation.
+
+## Implementation handoff review — commit `462b2a6`
+
+The commit adds the requested wallet, town-state, reputation, bridge, and
+save/load classes with focused tests. Static review confirms the town thresholds
+and net-stack reputation rules match the approved design. The handoff reports
+469 passing checks (403 prior + 66 new); this review did not rerun that suite.
+
+This is a **foundation**, not yet the playable end-to-end slice: `src/poker/table.gd`
+still instantiates `PokerGameState` directly with fixed stacks and has no
+references to `EconomyBridge`, `Wallet`, `TownState`, `TableReputation`, or
+`SaveSystem`. There is no player-facing buy-in, multi-hand `PokerSession`
+continuity, town/reputation display, or save/resume flow yet. In addition,
+`EconomyBridge.cash_out()` credits the current stack but does not itself prevent
+a repeated call; make that lifecycle one-shot when wiring it into table exit.
+Likewise, wallet debit and session-stack funding still need one coordinated
+buy-in API. Keep the conversion configurable.
+
+Next step: connect these services to the live table lifecycle, expose the
+lasting consequence, then verify save/reload through the game flow. Do not mark
+this milestone done until the player's full Rusty Spur loop is playable.

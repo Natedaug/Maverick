@@ -163,3 +163,41 @@ installation is confirmed.
 - Added a compact four-line action history while keeping status text separate.
 - Godot headless startup check passed after correcting a UI parenting issue.
   Review at a laptop-sized window remains a follow-up.
+
+## Responsive table layout — 2026-11-02
+
+- Fixed wrapped status/history labels collapsing to one pixel wide: wrapped
+  labels now receive the available felt width directly instead of relying on a
+  centering container that honored their one-character minimum.
+- Added a compact layout below 700 px height or 900 px width. It reduces card
+  dimensions, margins, spacing, and action-control widths, and hides history
+  below 540 px height so the decision UI stays visible.
+- Kept Next Hand in the same action dock row; it replaces the action controls
+  at showdown instead of adding a lower row that could be cut off.
+- Scene layout probe, with viewport sizes assigned on the root Window, checked
+  active-hand and showdown geometry at 1152×648, 800×600, and 640×480. In all
+  three, Fold / Check / Call / Wager and Next Hand stayed within viewport
+  bounds; wrapped message labels had full available width. Godot startup also
+  completed with no scene script/runtime errors.
+- Rendered pixels were not inspected: `--write-movie` capture could not start
+  cleanly in this Mac session due to a LaunchServices/XPC failure. Owner visual
+  review remains necessary.
+
+## Owner UI/UX direction — 2026-11-02
+
+- The owner wants a broader table redesign: much larger, readable text; names
+  adjacent to hole cards; a creative saloon table with visible player/pot chip
+  piles; fluid layouts through narrow/mobile-sized viewports; a smooth wager
+  slider with pot presets and click-to-step behavior; card/chip animations;
+  tasteful sound; and retention of the AI's assertive play style.
+- Documented a concrete layout brief, breakpoints, type sizes, interaction
+  semantics, acceptance criteria, and implementation order in
+  `docs/UI_DESIGN_SYSTEM.md` v0.5.
+- The prior responsive pass only verified that essential controls fit at fixed
+  viewports and corrected wrapped-text width. It does not resolve the owner's
+  concerns about small type, wasted space, weak table art direction, chip
+  feedback, wager ergonomics, or sensory polish.
+- Avoid iterative screenshot requests. Implement a coherent pass, check geometry
+  at the documented viewports, and collect one playthrough summary from the
+  owner. Poker legality remains with the engine/controller; UI sizing is a
+  proposal constrained by the engine's legal ranges.
