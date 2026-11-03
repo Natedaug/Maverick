@@ -17,10 +17,40 @@ const DEFAULT_EQUITY_ITERATIONS := 200
 var seat_index: int
 var strategy: Strategy
 var equity_iterations: int = DEFAULT_EQUITY_ITERATIONS
+## Optional memory of the human opponent; nudges decisions and timing.
+var memory: NPCMemory = null
+
+## Rival think-time tells (contract §4). Burned rivals (negative weight) snap
+## through decisions; emboldened rivals (positive weight) tank. Always
+## probabilistic so the tell is a learnable tendency, never a certainty.
+const TIMING_NEUTRAL := {tank = 0.2, snap = 0.2}
+const TIMING_EMBOLDENED := {tank = 0.6, snap = 0.1}
+const TIMING_WARY := {tank = 0.1, snap = 0.6}
+## Equity below this is treated as a bluff when the AI wants to bet/raise.
+const BLUFF_EQUITY := 0.5
 
 func _init(p_seat_index: int, p_strategy: Strategy = null) -> void:
 	seat_index = p_seat_index
 	strategy = p_strategy if p_strategy else Strategy.new()
+
+## Attach an NPCMemory for this rival to consult when deciding.
+## The memory holds signed weights about the player (seat 0).
+func set_memory(mem: NPCMemory) -> void:
+	memory = mem
+
+## Roll this decision's visible rhythm: "tank", "snap", or "normal".
+func pick_timing() -> String:
+	var odds: Dictionary = TIMING_NEUTRAL
+	if memory != null and memory.weight >= NPCMemory.BIAS_THRESHOLD:
+		odds = TIMING_EMBOLDENED
+	elif memory != null and memory.weight <= -NPCMemory.BIAS_THRESHOLD:
+		odds = TIMING_WARY
+	var roll := strategy.rng.randf()
+	if roll < float(odds.tank):
+		return "tank"
+	if roll < float(odds.tank) + float(odds.snap):
+		return "snap"
+	return "normal"
 
 ## Decide for `seat_index` in `g`. Must be this seat's turn.
 func decide(g: PokerGameState) -> Dictionary:
@@ -50,9 +80,39 @@ func decide_session(session: PokerSession) -> Dictionary:
 	var opponents: int = context.opponents
 	var equity := HandStrength.equity(
 		hole, board, opponents, equity_iterations, strategy.rng)
+	var base_bluff := strategy.bluff_frequency
+	if memory != null:
+		strategy.bluff_frequency = clampf(base_bluff + memory.get_bluff_adjustment(), 0.0, 1.0)
 	var intent := strategy.decide(
 		equity, context.stage, context.call_amount, context.pot, opponents)
+	strategy.bluff_frequency = base_bluff
+	intent = apply_memory_bias(intent, equity, int(context.call_amount))
 	return _materialize_session(intent, session, context)
+
+## Shift a Strategy intent using memory (contract §5). Each shift happens with
+## probability |bias| <= NPCMemory.WEIGHT_BIAS_CAP; legality is still decided
+## by the session when the intent is materialized.
+##   emboldened (bias > 0): a fold facing a bet may become a call.
+##   wary       (bias < 0): a call facing a bet may become a fold, and a
+##                          low-equity bet/raise (bluff) may be abandoned.
+func apply_memory_bias(intent: Dictionary, equity: float, call_amount: int) -> Dictionary:
+	if memory == null:
+		return intent
+	var bias := memory.get_bias()
+	if bias == 0.0 or strategy.rng.randf() >= absf(bias):
+		return intent
+	var action: PokerBetting.Action = intent.get("action", PokerBetting.Action.FOLD)
+	var out := intent.duplicate()
+	if bias > 0.0:
+		if action == PokerBetting.Action.FOLD and call_amount > 0:
+			out.action = PokerBetting.Action.CALL
+	else:
+		if action == PokerBetting.Action.CALL and call_amount > 0:
+			out.action = PokerBetting.Action.FOLD
+		elif (action == PokerBetting.Action.BET or action == PokerBetting.Action.RAISE) \
+				and equity < BLUFF_EQUITY:
+			out.action = PokerBetting.Action.CALL if call_amount > 0 else PokerBetting.Action.CHECK
+	return out
 
 # --- Internals ---
 

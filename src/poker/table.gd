@@ -9,6 +9,11 @@ const AI_EQUITY_ITERATIONS := 80
 const OPENING_REVEAL_SECONDS := 0.75
 const PLAYER_ACTION_CONFIRM_SECONDS := 0.35
 const AI_THINK_SECONDS := 0.55
+## Rival tell rhythm (Milestone 3): a visible long pause or an instant action.
+const AI_TANK_SECONDS := 1.8
+const AI_SNAP_SECONDS := 0.12
+const PLAYER_SEAT := 0
+const RIVAL_SEAT := 1
 const AI_ACTION_REVEAL_SECONDS := 0.65
 const STREET_REVEAL_SECONDS := 0.7
 const RUNOUT_STREET_SECONDS := 0.65
@@ -34,6 +39,7 @@ var _wallet: Wallet
 var _town_state: TownState
 var _table_reputation: TableReputation
 var _save_system := SaveSystem.new()
+var _rival_memory := RivalMemory.new()
 var _last_message := "Welcome to the Rusty Spur. Buy in when you're ready."
 var _history: Array[String] = []
 var _hand_settled := false
@@ -60,7 +66,7 @@ func _initialize_world_data() -> void:
 	_town_state.town_id = TOWN_ID
 	_table_reputation = TableReputation.new()
 	_table_reputation.table_id = TABLE_ID
-	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path):
+	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
 		_last_message = "Your saved Rusty Spur record is ready. Buy in to take a seat."
 	else:
 		_last_message = "A new wallet is ready. Buy in to take a seat."
@@ -89,8 +95,9 @@ func _on_buy_in_requested(chip_amount: int) -> void:
 	strategy.aggression = 0.55
 	strategy.tightness = 0.48
 	strategy.bluff_frequency = 0.08
-	_ai = AIPlayer.new(1, strategy)
+	_ai = AIPlayer.new(RIVAL_SEAT, strategy)
 	_ai.equity_iterations = AI_EQUITY_ITERATIONS
+	_ai.set_memory(_rival_memory.get_memory(str(PLAYER_SEAT)))
 	_history.clear()
 	_start_first_hand()
 
@@ -99,6 +106,7 @@ func _start_first_hand() -> void:
 	if not _session.start_hand():
 		_end_session("The table could not start a hand.")
 		return
+	_rival_memory.begin_hand(_session, RIVAL_SEAT)
 	_hand_settled = false
 	_opening_reveal_pending = true
 	_last_message = "Your cards are dealt. Take a moment to study them."
@@ -112,9 +120,11 @@ func _start_first_hand() -> void:
 func _on_player_action_requested(action: int, target: int) -> void:
 	if _session == null or _hand_settled or _session.current_actor() != 0:
 		return
+	var facing_bet := _call_amount() > 0
 	if not _session.apply_action(0, action as PokerBetting.Action, target):
 		_set_message("That action is no longer legal. Choose from the lit options.")
 		return
+	_rival_memory.observe_action(PLAYER_SEAT, action as PokerBetting.Action, facing_bet)
 	_last_message = "You %s." % _describe_action(action, target)
 	_record_history(_last_message)
 	_render()
@@ -128,6 +138,7 @@ func _on_next_hand_requested() -> void:
 	if not _session.start_next_hand():
 		_end_session("The table is settled. Cash out or buy in again when ready.")
 		return
+	_rival_memory.begin_hand(_session, RIVAL_SEAT)
 	_hand_settled = false
 	_opening_reveal_pending = true
 	_last_message = "Your new cards are dealt. Take a moment to study them."
@@ -175,13 +186,26 @@ func _continue_hand() -> void:
 			_render()
 			_continuation_running = false
 			return
-		_last_message = "The drifter studies the table."
+		var timing := _ai.pick_timing()
+		_rival_memory.observe_timing(timing)
+		var think_seconds := AI_THINK_SECONDS
+		match timing:
+			"tank":
+				_last_message = "The drifter goes into the tank..."
+				think_seconds = AI_TANK_SECONDS
+			"snap":
+				_last_message = "The drifter acts without a pause."
+				think_seconds = AI_SNAP_SECONDS
+			_:
+				_last_message = "The drifter studies the table."
 		_render()
-		await _pause_hand(AI_THINK_SECONDS)
+		await _pause_hand(think_seconds)
 		if _session == null or _hand_settled:
 			_continuation_running = false
 			return
+		var rival_facing_bet := _call_amount() > 0
 		var decision := _ai.decide_session(_session)
+		_rival_memory.observe_action(RIVAL_SEAT, decision.action, rival_facing_bet)
 		_last_message = "The drifter %s." % _describe_action(decision.action, decision.amount)
 		_record_history(_last_message)
 		_render()
@@ -207,6 +231,7 @@ func _settle_hand() -> void:
 		return
 	var payouts := _session.settle()
 	_bridge.hand_settled()
+	_rival_memory.record_settlement(_session, payouts)
 	_hand_settled = true
 	if payouts.is_empty():
 		_last_message = "The pot was settled."
@@ -254,7 +279,7 @@ func _on_save_requested() -> void:
 		return
 	if _session != null:
 		_end_session("Table closed for saving.")
-	if _save_system.save_game(_wallet, _town_state, _table_reputation, save_path):
+	if _save_system.save_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
 		_set_message("Rusty Spur progress saved.")
 	else:
 		_set_message("Could not write the save file.")
@@ -267,7 +292,7 @@ func _on_load_requested() -> void:
 		return
 	if _session != null:
 		_end_session("Table closed before loading.")
-	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path):
+	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
 		_set_message("Saved Rusty Spur progress loaded. Buy in when ready.")
 	else:
 		_set_message("No readable save file was found.")
@@ -289,6 +314,8 @@ func _render() -> void:
 		buy_in_chips = default_buy_in_chips,
 		can_afford_buy_in = wallet_units_per_chip > 0.0 \
 			and _wallet.get_balance() >= _wallet_cost(default_buy_in_chips),
+		rival_tell = _rival_memory.get_memory(str(PLAYER_SEAT)).get_tell_state(),
+		rival_label = _rival_memory.get_memory(str(PLAYER_SEAT)).get_label(),
 	}
 	if _session == null:
 		table_ui.render({}, _last_message, _history, status)
@@ -315,6 +342,13 @@ func _record_history(entry: String) -> void:
 	_history.append(entry)
 	while _history.size() > 20:
 		_history.pop_front()
+
+## Chips the current actor must add to call (0 when checking is free).
+func _call_amount() -> int:
+	for option in _session.available_actions():
+		if option.get("action", -1) == PokerBetting.Action.CALL:
+			return int(option.get("amount", 0))
+	return 0
 
 func _player_prompt() -> String:
 	var actions: Array[Dictionary] = _session.available_actions()

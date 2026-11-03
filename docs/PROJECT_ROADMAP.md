@@ -4,13 +4,21 @@ This is the task-level counterpart to the [Project Compass](PROJECT_COMPASS.md).
 It tracks what exists, what needs to be decided, and what proves each milestone.
 Reorder it when playtests or owner decisions change the plan; record why.
 
-## Current snapshot — 2026-11-02
+## Current snapshot — 2026-11-03
 
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 519 checks across 12 headless test scripts pass, including a Rusty Spur
-  flow from buy-in through two hands, cash-out, and save/load.
+  All 661 checks across 15 headless test scripts pass (Godot 4.7.2), including
+  a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
+  flow test had silently broken when timed reveals were added; it now waits on
+  table state instead of assuming synchronous play.
+- **Rival memory (Milestone 3):** the owner approved
+  [`NPC_MEMORY_CONTRACT.md`](NPC_MEMORY_CONTRACT.md) on 2026-11-03. The drifter
+  now remembers suck-outs, coolers, stone-cold bluffs, and folds to pressure;
+  memory nudges its decisions (≤15%, probabilistic), drives a visible
+  tank/snap rhythm shown as KEMPT/UNKEMPT, and persists in save format V2
+  (V1 saves still load). Contract §10 records clarifications for owner review.
 - **UI:** the latest responsive pass has larger type, adjacent player/card
   groups, visible chip stacks and pot, a smooth legal wager slider with
   fractional/pot/all-in presets, card/chip motion, synthesized cues, mute, and
@@ -28,8 +36,9 @@ Reorder it when playtests or owner decisions change the plan; record why.
   conversion, and loan terms remain open.
 - **Source safety:** town foundations are on `462b2a6`, the cash-out guard and
   review updates on `6e2293f`, and the interim responsive UI code on `c2a1fe8`.
-  Current runtime integration and UI polish are uncommitted in the Maverick
-  worktree and need owner commit after review.
+  Runtime integration is on `d04545a`. The Milestone 3 rival-memory work and
+  the flow-test repair are committed on the local `milestone-3-rival-memory`
+  branch, pending merge to `main` after owner playtest.
   The UI redesign brief is committed. Frontier has local commits `adfa16d` and
   `b6c8af8` with a salvage map but no remote backup.
 - **Integration plan:** the approved Frontier design (`6420dba`, revised in
@@ -43,9 +52,10 @@ Reorder it when playtests or owner decisions change the plan; record why.
    settlement, save/load, and leaving/cash-out. Record any concrete defects.
 2. Confirm the configurable wallet/chip exchange rate and `user://` save path
    behave as expected in the owner's normal Godot app context.
-3. Next systems milestone: one remembered rival with a fair, learnable tell.
-   Design its event/memory contract before implementation; do not add the wider
-   Frontier economy or progression systems yet.
+3. Owner playtest of the rival: over several hands, does the KEMPT/UNKEMPT
+   tell feel noticeable, fair, and worth acting on? Review contract §10 and the
+   open tuning choices in §9 (icon, decay, bias cap, UI surface). Do not add
+   the wider Frontier economy or progression systems yet.
 4. Add an off-device remote backup for Frontier if it should survive device
    loss. It currently has local Git history only.
 
@@ -77,7 +87,7 @@ reputation changes are visible; save/load restores the same playable state; and
 the player can understand what caused each change. Loans, property, and NPC
 memory are out of scope for this slice.
 
-### 3. One remembered rival with fair tells — **not started**
+### 3. One remembered rival with fair tells — **working; implemented, owner playtest pending**
 
 Adapt a small subset of Frontier's NPC psychology into Maverick's existing AI
 consumer. Add a few explicit memory events and decay rules. Connect one learned

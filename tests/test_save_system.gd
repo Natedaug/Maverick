@@ -15,6 +15,9 @@ func _init() -> void:
 	_test_save_and_load()
 	_test_load_missing_file_returns_false()
 	_test_malformed_save_does_not_mutate_state()
+	_test_rival_memory_round_trip()
+	_test_legacy_v1_save_loads_without_memory()
+	_test_malformed_memory_block_does_not_mutate_state()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -100,3 +103,60 @@ func _test_malformed_save_does_not_mutate_state() -> void:
 	_check(wallet.balance == 400, "failed load leaves wallet untouched")
 	_check(town.town_id == "existing_town", "failed load leaves town untouched")
 	_check(rep.lifetime_net == 25, "failed load leaves reputation untouched")
+
+func _test_rival_memory_round_trip() -> void:
+	var wallet: Wallet = Wallet.new()
+	wallet.balance = 900
+	var town: TownState = TownState.new()
+	var rep: TableReputation = TableReputation.new()
+	var rival := RivalMemory.new()
+	var mem := rival.get_memory("0")
+	mem.record_event("suck_out_suffered", 4)
+	mem.record_event("tank", 4)
+	mem.finish_hand(4)
+	var save: SaveSystem = SaveSystem.new()
+	var path := "/tmp/maverick_memory_save_test_%d.txt" % OS.get_process_id()
+	_check(save.save_game(wallet, town, rep, path, rival), "save with rival memory succeeds")
+
+	var restored := RivalMemory.new()
+	restored.get_memory("stale").weight = 3.0
+	_check(save.load_game(wallet, town, rep, path, restored), "load with rival memory succeeds")
+	_check(not restored.memories.has("stale"), "load replaces existing memories")
+	var back := restored.get_memory("0")
+	_check(absf(back.weight - mem.weight) < 0.0001, "memory weight restored (got %f)" % back.weight)
+	_check(back.suck_outs_suffered == 1 and back.hands_seen == 1 and back.last_seen_hand == 4,
+		"memory counters restored")
+	_check(back.recent_tanks == mem.recent_tanks, "tell window restored")
+
+func _test_legacy_v1_save_loads_without_memory() -> void:
+	var path := "/tmp/maverick_v1_save_test_%d.txt" % OS.get_process_id()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	for line in ["MAVERICK_SAVE_V1", "640", "devils_draw", "1", "7", "neutral", "rusty_spur", "-40"]:
+		file.store_line(line)
+	file.close()
+	var wallet: Wallet = Wallet.new()
+	var town: TownState = TownState.new()
+	var rep: TableReputation = TableReputation.new()
+	var rival := RivalMemory.new()
+	rival.get_memory("0").weight = 1.0
+	var save: SaveSystem = SaveSystem.new()
+	_check(save.load_game(wallet, town, rep, path, rival), "existing V1 save still loads")
+	_check(wallet.balance == 640 and rep.lifetime_net == -40, "V1 world state restored")
+	_check(rival.memories.is_empty(), "V1 save starts the rival with no memory")
+
+func _test_malformed_memory_block_does_not_mutate_state() -> void:
+	var path := "/tmp/maverick_bad_memory_save_test_%d.txt" % OS.get_process_id()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	for line in ["MAVERICK_SAVE_V2", "640", "devils_draw", "1", "7", "neutral", "rusty_spur", "-40", "2", "{not json"]:
+		file.store_line(line)
+	file.close()
+	var wallet: Wallet = Wallet.new()
+	wallet.balance = 400
+	var town: TownState = TownState.new()
+	var rep: TableReputation = TableReputation.new()
+	var rival := RivalMemory.new()
+	rival.get_memory("0").weight = 1.0
+	var save: SaveSystem = SaveSystem.new()
+	_check(not save.load_game(wallet, town, rep, path, rival), "bad memory block is rejected")
+	_check(wallet.balance == 400, "rejected memory block leaves wallet untouched")
+	_check(rival.get_memory("0").weight == 1.0, "rejected memory block leaves memory untouched")

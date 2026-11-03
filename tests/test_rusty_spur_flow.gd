@@ -17,6 +17,20 @@ func _check(condition: bool, message: String) -> void:
 		_failures += 1
 		push_error("FAIL: " + message)
 
+## The table paces reveals with timers; wait for a state instead of assuming
+## synchronous play. Returns false if `condition` never held.
+func _wait_for(condition: Callable, timeout_seconds: float = 15.0) -> bool:
+	var waited := 0.0
+	while not condition.call():
+		if waited >= timeout_seconds:
+			return false
+		await create_timer(0.05).timeout
+		waited += 0.05
+	return true
+
+func _settled_and_revealed(table: Node) -> bool:
+	return bool(table.get("_hand_settled")) and not bool(table.get("_settlement_reveal_pending"))
+
 func _run() -> void:
 	var temp_save_path := "/tmp/maverick_test_rusty_spur_flow.txt"
 	if FileAccess.file_exists(temp_save_path):
@@ -34,8 +48,11 @@ func _run() -> void:
 	_check(wallet.balance == 4000, "buy-in debits wallet once")
 	_check(table.get("_session") != null, "buy-in creates a PokerSession")
 	_check(table.get("_session").current_actor() == 0, "player acts first in opening hand")
+	_check(await _wait_for(func(): return not bool(table.get("_opening_reveal_pending"))),
+		"opening card reveal finishes")
 
 	ui.emit_signal("player_action_requested", PokerBetting.Action.FOLD, 0)
+	_check(await _wait_for(func(): return _settled_and_revealed(table)), "first hand settles")
 	var town: TownState = table.get("_town_state")
 	var reputation: TableReputation = table.get("_table_reputation")
 	_check(town.poker_volume == 1, "settled hand increments Rusty Spur volume")
@@ -51,9 +68,16 @@ func _run() -> void:
 	var in_play_stacks: Array[int] = active_session.stacks()
 	var in_play_total := in_play_stacks[0] + in_play_stacks[1] + active_session.total_pot()
 	_check(in_play_total == 2000, "session preserves all chips while the next hand is active")
-	if not bool(table.get("_hand_settled")) and active_session.current_actor() == 0:
+	# The rival may act first; fold whenever the player is prompted.
+	var player_prompted_or_settled := func():
+		return bool(table.get("_hand_settled")) or (active_session.current_actor() == 0 \
+			and not bool(table.get("_continuation_running")) \
+			and not bool(table.get("_opening_reveal_pending")))
+	_check(await _wait_for(player_prompted_or_settled), "second hand reaches a player decision or settles")
+	if not bool(table.get("_hand_settled")):
 		ui.emit_signal("player_action_requested", PokerBetting.Action.FOLD, 0)
-	_check(bool(table.get("_hand_settled")), "second hand settles through the controller")
+	_check(await _wait_for(func(): return _settled_and_revealed(table)),
+		"second hand settles through the controller")
 	_check(town.poker_volume == 2, "second settled hand increments town volume once")
 
 	ui.emit_signal("leave_table_requested")
@@ -65,6 +89,11 @@ func _run() -> void:
 	ui.emit_signal("leave_table_requested")
 	_check(wallet.balance == wallet_after_leave, "repeated leave cannot double-credit cash-out")
 	var reputation_label_before_save := reputation.get_label()
+	var rival: RivalMemory = table.get("_rival_memory")
+	var rival_mem := rival.get_memory("0")
+	_check(rival_mem.hands_seen == 2, "rival remembers both hands (got %d)" % rival_mem.hands_seen)
+	rival_mem.record_event("suck_out_suffered", 99)
+	var rival_weight_before_save := rival_mem.weight
 	ui.emit_signal("save_requested")
 	_check(FileAccess.file_exists(temp_save_path), "save action writes a file")
 
@@ -78,6 +107,9 @@ func _run() -> void:
 	_check(town.poker_volume == 2, "load restores town volume")
 	_check(reputation.lifetime_net == reputation_before_save, "load restores cumulative table reputation")
 	_check(reputation.get_label() == reputation_label_before_save, "loaded reputation label matches saved net")
+	var loaded_mem: NPCMemory = table.get("_rival_memory").get_memory("0")
+	_check(absf(loaded_mem.weight - rival_weight_before_save) < 0.0001, "load restores rival memory weight")
+	_check(loaded_mem.hands_seen == 2, "load restores rival hand count")
 
 	print("PASSES: %d" % _passes)
 	print("FAILURES: %d" % _failures)
