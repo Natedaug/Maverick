@@ -6,3 +6,6 @@ config_version=5
 config/name="Texas Hold'em Frontier"
 config/features=PackedStringArray("4.3")
 run/main_scene="res://scenes/main.tscn"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"

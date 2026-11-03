@@ -3,24 +3,28 @@
 A top-down open world western RPG where Texas Hold'em poker is the core mechanic.
 The long-term mission is to make poker the way players read, negotiate with,
 and build relationships across the frontier, with exploration and story giving
-each table context. The current prototype is focused on making the poker rules
-dependable before expanding the world systems.
+each table context.
 
 ## Status
-**Phase 1: Poker Core (in progress)** — reusable rules engine extracted; current
-work is turning it into a playable saloon table before connecting poker to the
-larger world and its characters.
+**Phase 1: Poker Core (heads-up slice playable)** — reusable rules engine and
+one-player-versus-AI table are in place. Current work is playtesting the refined
+table and setting the world/economy direction before building the world slice.
 
 The current prototype opens a one-player-versus-AI Hold'em table. Deal a hand,
 use Fold / Check / Call / Bet / Raise, and select **Next hand** after settlement.
-The table is a vertical slice of the poker loop; exploration, NPC relationships,
-and learnable tells are still future work.
+World exploration, persistent NPC relationships, and learnable tells are the
+next major systems.
 
 ## Docs
+- [Agent handoff instructions](AGENTS.md)
+- [Project Compass](docs/PROJECT_COMPASS.md)
+- [Project Roadmap](docs/PROJECT_ROADMAP.md)
 - [Game Design Document](docs/TEXAS_HOLDEM_FRONTIER_GDD.md)
 - [Godot Poker Engine](addons/poker_engine/README.md)
 - [Poker Engine Work Log](docs/POKER_ENGINE_WORKLOG.md)
+- [UI Design System](docs/UI_DESIGN_SYSTEM.md)
 - [Project direction and next steps](docs/POKER_ENGINE_WORKLOG.md#project-direction)
+- [Frontier integration review](docs/FRONTIER_INTEGRATION_REVIEW.md)
 
 ## Requirements
 - Godot 4.3+ (stable)

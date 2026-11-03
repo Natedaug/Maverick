@@ -144,6 +144,22 @@ installation is confirmed.
   settles hands, preserves both stacks, and rotates the heads-up button.
 - Kept this as one player versus one AI. The scene does not yet connect to
   exploration, NPC relationships, persistence, or the tell system.
-- Godot 4.7.2 headless startup loads the main scene and scripts without project
-  parse/runtime errors. Full hand playthrough and visual review remain to be
-  checked; engine headless coverage remains at 413 passing checks.
+- Set the project renderer to Compatibility after the user's Intel Mac failed
+  to compile Vulkan pipelines. Godot 4.7.2 headless startup loads the main scene
+  and scripts without project parse/runtime errors, and the user confirmed the
+  table is playable locally.
+- The user reports the UI/UX is very basic. Keep it as a functional prototype
+  for now; tune the poker loop before planning an interface redesign. Engine
+  headless coverage remains at 413 passing checks.
+
+## Table UI refinement — 2026-11-02
+
+- Added reusable card faces and backs with rank/suit corner marks, red/black
+  suit colors, and muted felt placeholders for community cards not yet dealt.
+- Clarified heads-up dealer/blind roles, active turn labels, and all-in state at
+  each seat; stacks remain explicit numeric values.
+- Made the call control show the exact price, the wager control show its target,
+  and a nearby range label show legal min/max targets.
+- Added a compact four-line action history while keeping status text separate.
+- Godot headless startup check passed after correcting a UI parenting issue.
+  Review at a laptop-sized window remains a follow-up.

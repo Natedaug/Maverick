@@ -15,6 +15,7 @@ var _button := 0
 var _hand: PokerGameState
 var _ai: AIPlayer
 var _last_message := ""
+var _history: Array[String] = []
 
 func _ready() -> void:
 	_rng.randomize()
@@ -37,6 +38,7 @@ func _start_hand() -> void:
 	_ai.equity_iterations = AI_EQUITY_ITERATIONS
 	_last_message = "A fresh 1,000-chip stake. Blinds are 10 / 20." \
 		if rebuy else "New hand. Blinds are 10 / 20."
+	_record_history(_last_message)
 	_render()
 	_continue_hand()
 
@@ -48,6 +50,7 @@ func _on_player_action_requested(action: int, target: int) -> void:
 		_render()
 		return
 	_last_message = "You %s." % _describe_action(action, target)
+	_record_history(_last_message)
 	_continue_hand()
 
 func _on_next_hand_requested() -> void:
@@ -66,6 +69,8 @@ func _continue_hand() -> void:
 		if _hand.is_street_over():
 			if _hand.can_run_out():
 				_hand.run_out()
+				_last_message = "The remaining board is dealt."
+				_record_history(_last_message)
 				_settle_hand()
 				break
 			if _hand.stage == PokerGameState.Street.RIVER:
@@ -73,6 +78,7 @@ func _continue_hand() -> void:
 				break
 			_hand.advance_street()
 			_last_message = "The %s is dealt." % _street_name(_hand.stage)
+			_record_history(_last_message)
 			_render()
 			continue
 		var actor: PokerBetting.Seat = _hand.current_actor()
@@ -84,6 +90,7 @@ func _continue_hand() -> void:
 			return
 		var decision := _ai.decide(_hand)
 		_last_message = "The drifter %s." % _describe_action(decision.action, decision.amount)
+		_record_history(_last_message)
 		_render()
 	if guard >= 100:
 		_last_message = "The hand stopped after too many turns. Please start a new hand."
@@ -99,6 +106,7 @@ func _settle_hand() -> void:
 		var amount: int = payouts[winner]
 		var name := "You" if winner == 0 else "The drifter"
 		_last_message = "%s take%s %s chips. Select Next hand when you're ready." % [name, "" if winner == 0 else "s", str(amount)]
+		_record_history(_last_message)
 	_render()
 
 func _render() -> void:
@@ -107,7 +115,12 @@ func _render() -> void:
 	var message := _last_message
 	if _hand.stage == PokerGameState.Street.SHOWDOWN and (_stacks[0] == 0 or _stacks[1] == 0):
 		message += " The table will offer a fresh 1,000-chip stake next hand."
-	table_ui.render(_hand.snapshot(0), message)
+	table_ui.render(_hand.snapshot(0), message, _history)
+
+func _record_history(entry: String) -> void:
+	_history.append(entry)
+	while _history.size() > 20:
+		_history.pop_front()
 
 func _player_prompt() -> String:
 	var call_amount := _hand.betting.amount_to_call(0)
