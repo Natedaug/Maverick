@@ -8,8 +8,13 @@ dependable before expanding the world systems.
 
 ## Status
 **Phase 1: Poker Core (in progress)** — reusable rules engine extracted; current
-work is validating settlement and edge cases before building the AI-to-table
-play loop and connecting it to the world.
+work is turning it into a playable saloon table before connecting poker to the
+larger world and its characters.
+
+The current prototype opens a one-player-versus-AI Hold'em table. Deal a hand,
+use Fold / Check / Call / Bet / Raise, and select **Next hand** after settlement.
+The table is a vertical slice of the poker loop; exploration, NPC relationships,
+and learnable tells are still future work.
 
 ## Docs
 - [Game Design Document](docs/TEXAS_HOLDEM_FRONTIER_GDD.md)

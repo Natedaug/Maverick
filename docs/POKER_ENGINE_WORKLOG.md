@@ -25,10 +25,10 @@ the engine is the only substantial implemented system. Keep the next milestone
 narrow: establish a trustworthy, reusable poker core, then connect it to a
 playable table with AI and readable tells before broadening into world content.
 
-The immediate workstream is settlement correctness. After that, validate the
-remaining side-pot/privacy/session cases, document a clean-project install, and
-then return attention to the playable table loop. This sequence keeps technical
-extraction work in service of the game's larger goal.
+The immediate workstream is a playable table that consumes the engine. After
+the first AI hand loop works, validate clean-project engine installation and
+broader chip-conservation cases. Keep technical extraction work in service of
+the game's larger goal.
 
 ## Work completed
 
@@ -77,7 +77,9 @@ extraction work in service of the game's larger goal.
 `PokerHandEvaluator`. `PokerBetting` owns street commitments and legal action
 checks. `PokerSession` optionally owns the stable seat roster across hands.
 Cards/deck and hand ranking are separate helpers. AI scripts consume
-`PokerGameState`; UI/world scripts are still stubs.
+`PokerGameState`; the first saloon table now connects a player-facing UI and AI
+to one hand at a time. Exploration, persistent NPC relationships, and tells
+remain future work.
 
 ## Known gaps and design decisions to make
 
@@ -132,3 +134,16 @@ All five original scripts pass (392 checks total).
 
 The extraction is not yet verified as a reusable release until clean-project
 installation is confirmed.
+
+## Playable table vertical slice — 2026-11-02
+
+- Replaced the empty table/UI stubs with a saloon table scene and card/pot/stack
+  display, Fold / Check / Call / Bet / Raise controls, and a next-hand button.
+- Connected the table controller to `PokerGameState` and the existing
+  equity-based AI. The controller advances streets, runs out all-in boards,
+  settles hands, preserves both stacks, and rotates the heads-up button.
+- Kept this as one player versus one AI. The scene does not yet connect to
+  exploration, NPC relationships, persistence, or the tell system.
+- Godot 4.7.2 headless startup loads the main scene and scripts without project
+  parse/runtime errors. Full hand playthrough and visual review remain to be
+  checked; engine headless coverage remains at 413 passing checks.
