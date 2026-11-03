@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3m8x1v5k9r2t6w7n4p"]
+
+[ext_resource type="Script" path="res://src/world/npc.gd" id="1_npc"]
+
+[node name="DevilDraw" type="Node2D"]
+script = ExtResource("1_npc")

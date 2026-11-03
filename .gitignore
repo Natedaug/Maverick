@@ -1,0 +1,25 @@
+# Godot 4
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+*.tmp
+*.uid.tmp
+
+# System
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Build artifacts
+build/
+dist/
+
+# Test output
+tests/.results/
