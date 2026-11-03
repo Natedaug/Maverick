@@ -94,16 +94,17 @@ Cards/deck and hand ranking are separate helpers. AI scripts consume
 ## Validation status
 
 The Godot 4.7.2 headless suite currently passes: deck (62 checks), hand
-evaluator (137), betting (99), game state (54), and AI (40), for 392 checks.
+evaluator (137), betting (99), game state (65), AI (40), and session (10),
+for 413 checks.
 The local Godot global class cache must be refreshed after the engine extraction
 or standalone scripts may resolve stale pre-extraction names/paths. The editor
 reported a macOS certificate lookup warning and could not save user-level
 editor settings in this environment; the project-local scripts nevertheless
 ran and passed.
 
-Coverage still needed before calling the extraction release-ready: dedicated
-main-pot, multiway side-pot, folded-contribution, snapshot privacy, and
-multi-hand button-rotation cases; plus import/use in a clean Godot project.
+Coverage still needed before calling the extraction release-ready: broader
+chip-conservation runs across varied all-in patterns and import/use in a clean
+Godot project.
 
 ## Agent continuation — 2026-11-02
 
@@ -112,7 +113,22 @@ multi-hand button-rotation cases; plus import/use in a clean Godot project.
 - Made stack crediting default to zero for seats omitted from the winner-only payout map. This preserves the existing public return shape while allowing losers to settle and conserving chips.
 - Updated the root README and this work log with the whole-project mission and sequence: trustworthy core → playable AI table/tells → broader world systems.
 
-All five existing scripts were rerun after the fix and pass (392 checks total).
-Next: add focused main/side-pot payout and folded-contribution coverage, then
-confirm import/use in a clean project. The extraction remains unverified as a
-reusable release until those cases are covered.
+All five original scripts pass (392 checks total).
+
+## Agent continuation — 2026-11-02 (verification coverage)
+
+- An independent agent reviewed settlement, snapshot privacy, and session
+  lifecycle. It found no confirmed defect in those areas and recommended adding
+  deterministic tests where coverage was absent.
+- Added a scripted main/side-pot settlement case with contributions 100/300/300:
+  the folded contributor's chips remain in both pots, seat 0 wins the 300-chip
+  main pot, and seat 1 wins the 400-chip side pot.
+- Added snapshot assertions for private cards before showdown, revealed live
+  hands at showdown, hidden folded cards, and hidden cards after a fold-win.
+- Added `tests/test_session.gd` for stable seat ids, winner payout mapping,
+  empty-seat snapshot state, and button rotation past an empty seat.
+- Reran the six headless scripts: all 413 checks pass. Remaining verification
+  is broader chip-conservation coverage and import/use in a clean Godot project.
+
+The extraction is not yet verified as a reusable release until clean-project
+installation is confirmed.

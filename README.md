@@ -25,3 +25,10 @@ play loop and connecting it to the world.
 godot --path .          # open editor
 godot --headless --quit # verify project loads cleanly 
 ```
+
+## Poker engine checks
+```bash
+for test in tests/test_deck.gd tests/test_hand_evaluator.gd tests/test_betting.gd tests/test_game_state.gd tests/test_ai.gd tests/test_session.gd; do
+  godot --headless --path . --script "$test" || exit 1
+done
+```

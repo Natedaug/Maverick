@@ -16,6 +16,8 @@ func _init() -> void:
 	_test_allin_runout_and_settlement()
 	_test_showdown_best_hand_wins()
 	_test_showdown_split_pot()
+	_test_main_side_pots_and_folded_contribution()
+	_test_snapshot_hides_opponent_cards()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -144,6 +146,9 @@ func _test_fold_win_settlement() -> void:
 	_check(paid == {1: 150}, "BB gets blinds back: %s" % str(paid))
 	_check(g.stacks() == [950, 1050, 1000], "stacks: %s" % str(g.stacks()))
 	_check(g.stage == PokerGameState.Street.SHOWDOWN, "stage = SHOWDOWN after settle")
+	var fold_win_view: Dictionary = g.snapshot(-1)
+	_check(fold_win_view.seats[1].cards.is_empty(),
+		"fold-win does not reveal the winner's hole cards")
 
 func _test_allin_runout_and_settlement() -> void:
 	# Both players all-in from the blinds; deck decides the rest
@@ -195,3 +200,49 @@ func _test_showdown_split_pot() -> void:
 	_check(paid[1] == 601, "odd chip to seat after button (got %d)" % paid.get(1, -1))
 	_check(paid[0] == 600, "seat 0 gets 600 (got %d)" % paid.get(0, -1))
 	_check(_sum(paid) == 1201, "full pot distributed")
+
+func _test_main_side_pots_and_folded_contribution() -> void:
+	var g := PokerGameState.new([1000, 1000, 1000], 0, 50, 100)
+	# Total contributions are 100 / 300 / 300. Seat 2 folded, so its chips
+	# fund both pots but it cannot win either one. Seat 0 wins the main pot;
+	# seat 1 is the only eligible player for the side pot.
+	for seat in g.betting.seats:
+		seat.committed = 0
+		seat.chips = [900, 700, 700][seat.id]
+		seat.total_committed = [100, 300, 300][seat.id]
+		seat.acted = true
+	g.betting.seats[2].folded = true
+	g.betting.current_bet = 0
+	g.betting.to_act = -1
+	g.communal = 700
+	g.stage = PokerGameState.Street.RIVER
+	g.board = _cards("As Kd Qh 8c 2s")
+	g.hole_cards[0] = _cards("Ac Ad")
+	g.hole_cards[1] = _cards("Kh Kc")
+	var pots := g.pot_breakdown()
+	_check(pots.size() == 2, "contributions form main and side pots: %s" % str(pots))
+	_check(pots[0] == {amount = 300, eligible = [0, 1]},
+		"main pot includes all contributions and only live contenders: %s" % str(pots[0]))
+	_check(pots[1] == {amount = 400, eligible = [1]},
+		"side pot excludes folded contributor: %s" % str(pots[1]))
+	var paid: Dictionary = g.settle()
+	_check(paid == {0: 300, 1: 400}, "each pot goes to its eligible winner: %s" % str(paid))
+	_check(g.stacks() == [1200, 1100, 700], "pot payouts preserve folded seat chips: %s" % str(g.stacks()))
+	var settled_view: Dictionary = g.snapshot(-1)
+	_check(settled_view.seats[0].cards.size() == 2 and settled_view.seats[1].cards.size() == 2,
+		"showdown reveals cards for players who reached it")
+	_check(settled_view.seats[2].cards.is_empty() and settled_view.seats[2].hidden_cards == 2,
+		"showdown keeps folded cards private")
+
+func _test_snapshot_hides_opponent_cards() -> void:
+	var g := PokerGameState.new([1000, 1000], 0, 50, 100)
+	var own_cards: Array[String] = []
+	for card in g.hole_cards[0]:
+		own_cards.append(card.to_code())
+	var opponent: Dictionary = g.snapshot(0).seats[1]
+	_check(g.snapshot(0).seats[0].cards == own_cards, "viewer sees their own hole cards")
+	_check(opponent.cards.is_empty() and opponent.hidden_cards == 2,
+		"viewer cannot see opponent hole cards")
+	var observer_seat: Dictionary = g.snapshot(-1).seats[0]
+	_check(observer_seat.cards.is_empty() and observer_seat.hidden_cards == 2,
+		"observer cannot see either player's hole cards")
