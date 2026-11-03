@@ -13,6 +13,14 @@ runtime for shipping features. Frontier should remain a reference/archive for
 design, prototypes, and useful interaction ideas until a design is deliberately
 adapted into Maverick's architecture.
 
+**Status update:** Frontier has since been initialized as a local Git
+repository and committed at `adfa16d` (protected snapshot) and `b6c8af8`
+(salvage map). Its worktree is clean and no source has been moved or deleted.
+There is no remote configured yet, so this is local history rather than an
+off-device backup. `~/Dev/Frontier/SALVAGE_MAP.md` is a useful file inventory;
+its suggested port order is not the approved product roadmap. The active
+execution sequence lives in Maverick's `docs/PROJECT_ROADMAP.md`.
+
 This preserves the Godot poker engine, which already owns Texas Hold'em rules,
 legal actions, side pots, viewer-safe snapshots, and multi-hand session state.
 Do not bring over Frontier's second poker engine or make two engines share
@@ -26,7 +34,7 @@ authority over a hand.
 | Poker | Reusable `addons/poker_engine/`; headless suite has 413 checks; a playable heads-up table consumes `PokerGameState` | Separate TypeScript rules engine, evaluator/pots, CLI/autoplay harness, and Svelte table components |
 | AI | Equity-based Hold'em AI and strategy; basic tell system remains a stub | Psychology data model plus a very simple decision function |
 | World | Early scenes and character scaffolding; currently centered on Devil's Draw / Split River Valley | Static region example and a small town-state transition function |
-| Economy | Not implemented yet; original design treats poker chips as bankroll/currency/story stakes | Minimal ledger, debt thresholds, and property catalog functions |
+| Economy | Not implemented yet; table bankroll is now distinguished from wallet/debt | Minimal ledger, debt thresholds, and property catalog functions |
 | Direction | Texas Hold'em Frontier GDD and living UI design guide | `Agent.md` proposes Dust & Decisions, New Canaan, five Crown venues, empire building, debt, memory, cheating, variants, and procedural modes |
 
 Frontier's `AgentProgress.md` reports initial tests and scaffolding. Its world
@@ -55,16 +63,12 @@ first world slice.
 
 ### 0. Protect and reconcile the source material
 
-- Back up/version Frontier before major edits. At review time, `~/Dev/Frontier`
-  did not have a Git repository, so there is no local commit history to rely on.
-- Decide the canonical product name, territory, and map. Maverick currently
-  names Devil's Draw, Split River Valley, and The Dealer; Frontier names Dust &
-  Decisions, New Canaan, and the Five Crowns. These can fit together, but the
-  hierarchy and canonical names need to be explicit.
-- One possible hierarchy is New Canaan as the territory, Split River Valley as
-  a region, Devil's Draw as the hub town, the Rusty Spur as its saloon, and the
-  Five Crowns as the long-term circuit around The Dealer. Treat this as a
-  proposal for review, not settled canon.
+- Frontier now has a local Git snapshot and salvage map, but still has no
+  remote backup. Add one if it should be protected off-device.
+- The owner approved the first-slice 2D presentation and this setting hierarchy:
+  New Canaan territory → Split River Valley region → Devil's Draw hub → Rusty
+  Spur saloon; Five Crowns are the long-term circuit and The Dealer is the
+  long-arc antagonist. Product title remains undecided.
 - Keep both original design documents. Add a short canon map instead of
   silently overwriting either project's voice or assumptions.
 
@@ -88,10 +92,11 @@ first world slice.
 
 ### 3. Add a coherent ledger and debt loop
 
-- Decide how poker chips relate to spendable currency and long-term assets.
-  The GDD currently makes chips bankroll/currency/reputation, while Frontier
-  separates silver, gold, credit, and debt. Avoid making table stacks, wallet
-  cash, property value, and reputation interchangeable by accident.
+- The owner approved poker chips as the active table/session bankroll, separate
+  from the persistent wallet/assets, with debt only from explicit credit or
+  obligations. Exact currency names, units, conversion, loan terms, and property
+  valuation remain open. Avoid making table stacks, wallet cash, property value,
+  and reputation interchangeable by accident.
 - Add one ledger transaction boundary for wins, losses, purchases, debt
   payments, and ownership changes. Define the House Line terms and player
   consequences before adding enforcement scenes.
@@ -126,34 +131,76 @@ milestone.
    signed relationship graph, but updating an existing memory clamps its
    weight with `clamp01`, erasing negative/grudge values. Resolve the data
    contract and add tests before porting memory.
-3. **Money model conflict.** Decide chips-to-cash conversion, whether poker
-   losses create debt, how debts accrue, and how property purchases affect
-   gameplay. Otherwise balances will drift across table and world systems.
-4. **2D versus 3D.** Maverick's GDD and current `CharacterBody2D` scenes describe
-   a top-down pixel-art game; the combined roadmap calls Godot a 3D world. Pick
-   a presentation direction before making world scenes or acquiring assets.
-   The current 2D foundation can support the world-state design, but a 3D
-   conversion is a separate production and technical decision.
-5. **Setting and content scope.** New Canaan/Five Crowns and Devil's Draw/Split
-   River Valley need one canonical hierarchy. Five regional arcs, several
-   currencies, properties, weather, cheating, variants, and procedural content
-   are too much to build before one cohesive town slice works.
-6. **Overuse of global state.** Turning every domain concept into a Godot
+3. **Currency details remain open.** The owner approved separate table bankroll
+   and persistent wallet, with debt from explicit credit/obligations. Names,
+   units, exchange rates, loan terms, and property valuation still need design.
+4. **Content scope.** Five regional arcs, several currencies, properties,
+   weather, cheating, variants, and procedural content are too much to build
+   before one cohesive town slice works.
+5. **Overuse of global state.** Turning every domain concept into a Godot
    autoload makes tests, save/load, and multiple runs harder. Prefer explicit
    world/session state passed to systems; reserve autoloads for a few true
    coordinators.
-7. **UI is not portable source code.** Frontier's Svelte components are useful
+6. **UI is not portable source code.** Frontier's Svelte components are useful
    interaction references, but should be recreated as Godot scenes/components
    using Maverick's living design system, not copied or embedded into runtime.
-8. **History and generated files.** Frontier currently includes `dist/` and
-   `node_modules/` alongside TypeScript sources and has no Git repository.
-   Preserve the source and tests; do not migrate dependencies or generated
-   build output into Maverick.
+7. **History and generated files.** Frontier now preserves its TypeScript source
+   and tests in local Git and ignores `dist/` and `node_modules/`. It has no
+   remote yet. Do not migrate dependencies or generated build output into
+   Maverick.
 
 ## Decision
 
 Proceed with the combined vision, but do not start by porting every Frontier
-module into autoloads. First preserve Frontier, settle naming/canon, then prove
-one small Devil's Draw slice with a saloon, an NPC rival, and poker-backed
-consequences. Port each useful rule into GDScript behind Maverick-owned APIs and
-test it there.
+module into autoloads. The owner has settled first-slice presentation and world
+hierarchy. Define the remaining economy details, then prove one small Devil's
+Draw slice with a saloon, an NPC rival, and poker-backed consequences. Port each
+useful rule into GDScript behind Maverick-owned APIs and test it there.
+
+## Review of Frontier's first town-slice proposal — 2026-11-02
+
+Frontier commit `6420dba` proposes a focused end-to-end slice: settle poker,
+update wallet and town state, preserve a lasting consequence, then verify
+save/load. This is a good milestone and remains entirely inside Maverick's
+runtime. The proposal is **approved in direction, pending a design revision
+before implementation**.
+
+Revise these details before starting a port:
+
+- Do not cash out after every hand. The player's chips remain in the
+  `PokerSession` stack across hands while seated. Debit the wallet once when
+  buying into a table; cash out the remaining stack once when leaving the
+  session. Keep the exchange rate configurable until the owner decides it.
+- Model wallet and town state as explicit serializable data owned by the game
+  state. Use autoloads only for genuine application-wide coordination; a
+  service can accept state as an argument without owning it globally.
+- Pick and document one deterministic settlement-to-town rule and one visible,
+  persistent consequence for this slice. Keep the town update downstream of
+  the poker engine's settlement result; the bridge must not duplicate poker
+  rules. Keep debt unchanged for ordinary poker outcomes.
+- Keep the first slice small. Do not add loans, property, NPC memory, or
+  currency design decisions to it. Save/load should preserve the selected
+  wallet, town, and consequence data.
+
+After Frontier records this revised design and Maverick's owner-facing plan is
+updated, implementation can proceed in Maverick as GDScript. The current
+proposal does not authorize copying Frontier code or adding TypeScript/Svelte
+runtime dependencies to Maverick.
+
+**Revision reviewed:** Frontier commit `f1180e4` addresses the requested
+buy-in/cash-out boundary, explicit serializable state, and scope limits. The
+town rule is deterministic and small enough for the slice: each Rusty Spur
+settlement adds one poker-volume point; positive/negative/zero net player stack
+change adjusts prosperity by +1/-1/0; crossing +3/-3 changes town state and
+resets prosperity. The visible “known winner”/“known loser” reputation label
+is an appropriate first persistent consequence because it has no gameplay
+effect yet. **Approved to proceed with implementation in Maverick.**
+
+Implementation should define net stack change from the player's stack
+immediately before the hand to their settled stack after payouts, excluding
+wallet deposits, buy-ins, and cash-outs. “Lifetime” reputation means cumulative
+net stack change from settled Rusty Spur hands in the current save. Persist the
+cumulative value (or sufficient data to derive it) and derive the label from
+its sign; zero remains “unknown.” Poker volume and prosperity belong to the
+Rusty Spur town state. Keep the configured exchange rate explicit and do not
+select a canonical rate as part of this implementation.

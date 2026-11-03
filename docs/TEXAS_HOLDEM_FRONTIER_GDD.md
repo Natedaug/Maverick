@@ -13,12 +13,12 @@
 
 | Attribute | Value |
 |---|---|
-| **Core Loop** | Explore world → Find poker game → Read tells → Play hand → Earn chips/reputation → Unlock higher stakes → Repeat |
-| **Primary Currency** | Chips (= health, money, reputation) |
+| **Core Loop** | Explore world → Find poker game → Read tells → Play hand → Earn table bankroll/reputation → Unlock higher stakes → Repeat |
+| **Primary Currency** | Persistent world wallet (name/unit TBD); poker chips are the current table/session bankroll |
 | **Unique Mechanic** | Tell System + Stare-Down Bluff Minigame |
 | **Progression** | Reputation (Honest/Shark/Cheat/Sport) + Deck Collection + Camp Upgrades |
 | **Retention Hooks** | Daily Hands, Seasonal Events, Living NPCs, Back Room Roguelike, Async Multiplayer |
-| **Setting** | Devil's Draw & Split River Valley (fictional Old West) |
+| **Setting** | New Canaan Territory → Split River Valley → Devil's Draw |
 | **Final Boss** | "The Dealer" (high-stakes poker duel for your soul/the town) |
 
 ---
@@ -28,6 +28,26 @@
 You are a drifter in the town of **Devil's Draw** with a deck of cards and a debt to pay. Poker is not just a minigame—it is the **language of power**. Every conversation, negotiation, and conflict is resolved through hands, bluffs, and reads.
 
 **The Hook:** You cannot shoot your way through the West. Violence is a last resort with permanent consequences. But a well-timed bluff can topple a mayor.
+
+### Canon and economy decisions (2026-11-02)
+
+- **World hierarchy:** New Canaan is the territory; Split River Valley is a
+  region; Devil's Draw is the hub town; the Rusty Spur is its saloon. The Five
+  Crowns are the long-term tournament circuit, with The Dealer as the long-arc
+  antagonist.
+- **First-slice presentation:** top-down 2D pixel art, matching the existing
+  GDD and Godot scenes. A 3D conversion is not part of the first world slice.
+- **Bankroll boundary:** poker chips are table/session bankroll. The persistent
+  wallet and assets live in the world economy, not in the current table stack.
+  Ordinary poker losses do not create debt unless the player explicitly borrows
+  or incurs an obligation. Currency names, units, exchange rates, and loan terms
+  remain to be designed. Earlier world references to buying/donating/paying
+  with chips should use wallet money or an explicit buy-in/cash-out flow, not
+  silently spend the active table stack.
+
+This decision record supersedes the earlier shorthand that described chips as
+health, currency, and reputation. Keep health/debt consequences story-driven and
+explicit; do not infer wallet balance or reputation directly from a poker stack.
 
 ---
 
@@ -63,8 +83,14 @@ You are a drifter in the town of **Devil's Draw** with a deck of cards and a deb
 ### Core Rules
 Standard Texas Hold'em, with the following adaptations:
 
-- **Chips = Health + Currency + Reputation** (no HP system; lose bankroll = "broke" state → debt or dangerous work)
-- **No instant death** — loss creates story (debt, revenge, redemption arcs)
+- **Table chips are the active hand/session bankroll.** Wallet money, health,
+  reputation, property, and debt are separate persistent world state. Use wallet
+  money for ordinary world purchases; a table stack is at risk only when a
+  specific game or event puts it in play. Buy-in/cash-out conversion rules are
+  still to be designed.
+- **No instant death** — a poker loss can create story through an explicit loan,
+  wager, debt, revenge, or redemption event; an ordinary loss alone does not
+  create ledger debt.
 
 ### The Tell System
 Every NPC has a unique tell (eye twitch, chip habit, breathing pattern). Tells are learned via:
@@ -124,7 +150,10 @@ Between hands, choose actions that affect AI behavior in real-time:
 
 ### Main Story: "The Dealer's Debt"
 
-**Premise:** You arrive in Devil's Draw owing a debt to **The Dealer**—a mysterious figure running the underground circuit. You have one in-game year to win enough chips to pay off the debt, or face worse consequences.
+**Premise:** You arrive in Devil's Draw owing an explicit world-ledger debt to
+**The Dealer**—a mysterious figure running the underground circuit. You have one
+in-game year to settle it through poker winnings, work, or other choices, or face
+worse consequences. Exact currency and conversion rules remain to be designed.
 
 **Revelations (unlocked progressively):**
 - The Dealer *rigged* your arrival—you are part of a larger game
@@ -274,7 +303,7 @@ Random events that change rules mid-game:
 
 | Term | Definition |
 |---|---|
-| **Bankroll** | Player's chip total; serves as HP/currency/reputation |
+| **Bankroll** | Chips available to wager in the current poker game/session; separate from persistent wallet, health, reputation, and debt |
 | **Tell** | Readable behavioral pattern unique to each NPC |
 | **Stare-Down** | Bluff minigame; hold prompt while tell flickers |
 | **Devil's Deck** | Collectible special cards that modify hands |

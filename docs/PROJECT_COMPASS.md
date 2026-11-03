@@ -29,22 +29,32 @@ memorable rival, a meaningful stake, and a lasting consequence.
 - **Scope discipline:** prove one connected town/poker/economy/NPC slice before
   expanding regions, properties, variants, cheating, procedural modes, or social
   multiplayer.
+- **First-slice presentation:** top-down 2D pixel art, consistent with
+  Maverick's GDD and current scenes. Reconsider 3D only as a later, explicit
+  production decision.
+- **World hierarchy:** New Canaan is the territory; Split River Valley is a
+  region; Devil's Draw is the hub town; the Rusty Spur is its saloon; the Five
+  Crowns are the long-term circuit; The Dealer remains the long-arc antagonist.
+- **Money boundary:** table chips are the current hand/session bankroll;
+  persistent wallet and assets are separate world state. Debt comes from
+  explicit credit or obligations, not automatically from every ordinary poker
+  loss. Currency names, units, conversion rates, and detailed debt terms remain
+  to be designed.
 
-## Open decisions — not canon yet
+## Open decisions
 
-These choices affect world content and should be settled before dependent
-production work. Until then, keep code/data easy to rename and describe any
-mapping as a proposal.
+Do not reopen the approved decisions above without new owner direction. The
+product title and detailed currency/credit rules still need a choice. Keep these
+details data-driven until settled.
 
-| Decision | Current sources conflict | Candidate for discussion |
-|---|---|---|
-| Presentation | Maverick GDD/current scenes: top-down 2D pixel art; combined roadmap: 3D world | Choose 2D or 3D before world-scene/asset production |
-| Product and world canon | Maverick: Texas Hold'em Frontier, Devil's Draw, Split River Valley, The Dealer; Frontier: Dust & Decisions, New Canaan, Five Crowns | New Canaan territory → Split River Valley region → Devil's Draw hub → Rusty Spur saloon; Five Crowns circuit and The Dealer as long arc |
-| Money and stakes | Maverick: chips serve as bankroll/currency/reputation; Frontier: silver, gold, credit, debt, deeds | Define table bankroll, wallet, credit, assets, reputation, and conversion/consequence rules |
-| World-slice scope | Maverick's original hub and Frontier's empire-building vision differ in scale | Prove one town, saloon, rival, property/debt consequence, and short Crown arc |
+| Decision | Still open |
+|---|---|
+| Product title | Whether to retain Texas Hold'em Frontier, adopt Dust & Decisions, or choose another title |
+| Currency details | Names/units for wallet currency, currency exchange, loan terms, repayment schedule, property valuation, and how reputation is represented |
 
-The candidate mappings are discussion material, not approved decisions. Record
-the owner's choice here and in the detailed roadmap when made.
+**Decision record — 2026-11-02:** the owner approved the first-slice 2D
+presentation, world hierarchy, and table-chip/wallet/debt boundary above. The
+exact product title and currency implementation remain open.
 
 ## Architecture boundaries
 
@@ -53,8 +63,9 @@ the owner's choice here and in the detailed roadmap when made.
 - Persistent world state should be explicit and saveable. Use autoloads only
   for a few application-wide coordinators (for example, session/save services),
   not automatically for every domain concept.
-- Connect hand outcomes to one ledger boundary. Do not equate chips, currency,
-  property value, debt, and reputation without a defined rule.
+- Connect hand outcomes to one ledger boundary. Keep table stacks, wallet
+  currency, property value, debt, and reputation distinct; only explicit
+  borrowing or obligations create debt.
 - NPC reads must be learnable and fair: distinguish observed fact, suspicion,
   rumor, and private information.
 - The table's current UI is a functional prototype. Follow the design system;

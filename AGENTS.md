@@ -21,6 +21,9 @@ Before making project changes, read these in order:
 - Frontier is design/reference material. Port approved behavior into Maverick's
   architecture; do not copy its TypeScript runtime, duplicate poker engine,
   `node_modules/`, or generated `dist/` output.
+- Frontier's `SALVAGE_MAP.md` is a file inventory, not authorization or the
+  execution order. Follow `docs/PROJECT_ROADMAP.md` and wait for owner decisions
+  before starting a port.
 - Do not silently resolve open canon decisions. Mark new ideas as proposals in
   the compass/roadmap and get the owner's direction before dependent work.
 - Keep work scoped to the current roadmap milestone. UI specialists should use
