@@ -17,6 +17,7 @@ func _init() -> void:
 	_test_buy_in_and_losing_hand()
 	_test_winning_hand_and_cash_out()
 	_test_double_cash_out_guarded()
+	_test_configurable_buy_in_cash_out_rate()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -152,3 +153,17 @@ func _test_double_cash_out_guarded() -> void:
 	var second := bridge.cash_out()
 	_check(second == 0, "second cash_out returns 0 (got %d)" % second)
 	_check(wallet.get_balance() == 290, "wallet unchanged by double cash_out (got %d)" % wallet.get_balance())
+
+func _test_configurable_buy_in_cash_out_rate() -> void:
+	var wallet := Wallet.new()
+	wallet.balance = 1000
+	var session := PokerSession.new([500, 500], 0, 10, 20)
+	var bridge := EconomyBridge.new()
+	bridge.wallet = wallet
+	bridge.wallet_units_per_chip = 0.5
+	bridge.player_seat = 0
+	_check(bridge.buy_in(500), "configurable-rate buy-in succeeds")
+	_check(wallet.get_balance() == 750, "buy-in charges configured wallet cost")
+	bridge.session = session
+	_check(bridge.cash_out() == 500, "cash-out reports remaining chips")
+	_check(wallet.get_balance() == 1000, "cash-out uses same configured rate")

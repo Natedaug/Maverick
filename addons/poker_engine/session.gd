@@ -74,6 +74,38 @@ func is_street_over() -> bool:
 func hand_over() -> bool:
 	return _hand_state == null or _hand_state.hand_over()
 
+## Number of players still live in the current hand.
+func players_left() -> int:
+	return 0 if _hand_state == null else _hand_state.players_left()
+
+## Current street enum, matching PokerGameState.Street.
+func current_stage() -> int:
+	return PokerGameState.Street.SHOWDOWN if _hand_state == null else _hand_state.stage
+
+## Total current pot, including committed chips from earlier streets.
+func total_pot() -> int:
+	return 0 if _hand_state == null else _hand_state.total_pot()
+
+## Private decision inputs for an AI acting at `seat_id`. This returns only
+## that seat's hole cards plus public board/betting context; callers cannot use
+## it to inspect another seat's cards by accident while computing equity.
+func ai_context(seat_id: int) -> Dictionary:
+	assert(_hand_state != null, "session has no active hand")
+	var local_seat := _active_seats.find(seat_id)
+	assert(local_seat >= 0, "seat %d is not in this hand" % seat_id)
+	assert(current_actor() == seat_id, "seat %d is not acting" % seat_id)
+	var seat: PokerBetting.Seat = _hand_state.betting.seats[local_seat]
+	return {
+		hole_cards = _hand_state.hole_cards[local_seat].duplicate(),
+		board = _hand_state.board.duplicate(),
+		stage = _hand_state.stage,
+		opponents = _hand_state.players_left() - 1,
+		pot = _hand_state.total_pot(),
+		call_amount = _hand_state.betting.amount_to_call(local_seat),
+		current_bet = _hand_state.betting.current_bet,
+		street_commitment = seat.committed,
+	}
+
 func is_action_legal(seat_id: int, action: PokerBetting.Action, amount: int = 0) -> bool:
 	if _hand_state == null:
 		return false

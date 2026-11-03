@@ -149,6 +149,8 @@ func _test_fold_win_settlement() -> void:
 	var fold_win_view: Dictionary = g.snapshot(-1)
 	_check(fold_win_view.seats[1].cards.is_empty(),
 		"fold-win does not reveal the winner's hole cards")
+	_check(fold_win_view.pot == 0 and fold_win_view.pots.is_empty(),
+		"settled fold-win snapshot clears the awarded pot")
 
 func _test_allin_runout_and_settlement() -> void:
 	# Both players all-in from the blinds; deck decides the rest

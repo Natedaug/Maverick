@@ -40,6 +40,9 @@ memorable rival, a meaningful stake, and a lasting consequence.
   explicit credit or obligations, not automatically from every ordinary poker
   loss. Currency names, units, conversion rates, and detailed debt terms remain
   to be designed.
+- **Current playable slice:** the Rusty Spur table now connects buy-in,
+  multi-hand poker, town/reputation consequences, cash-out, and save/load. The
+  full responsive UI pass is implemented; owner hands-on validation remains.
 
 ## Open decisions
 
@@ -68,9 +71,8 @@ exact product title and currency implementation remain open.
   borrowing or obligations create debt.
 - NPC reads must be learnable and fair: distinguish observed fact, suspicion,
   rumor, and private information.
-- The table's current UI is a functional prototype. Follow the design system;
-  defer a wholesale redesign until playtests show which decisions and information
-  need more support.
+- The table UI follows the living design system. Refine it from owner
+  playthrough feedback while keeping poker decisions readable and accessible.
 
 ## How to use the project references
 

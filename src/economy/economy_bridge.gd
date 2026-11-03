@@ -8,10 +8,25 @@ var wallet
 var town_state
 var table_reputation
 var player_seat
+## Prototype default only. Keep this editable until canonical currency values
+## are chosen; one wallet unit per chip is not a world-economy decision.
+var wallet_units_per_chip: float = 1.0
 
 var _stack_at_hand_start: int = 0
 var _hand_in_progress: bool = false
 var _cashed_out: bool = false
+var _buy_in_complete: bool = false
+
+## Debit the configured wallet cost for a chip buy-in. The caller creates the
+## PokerSession with this chip amount only after this succeeds.
+func buy_in(chip_amount: int) -> bool:
+	if _buy_in_complete or chip_amount <= 0 or wallet_units_per_chip <= 0.0:
+		return false
+	var wallet_cost := int(round(float(chip_amount) * wallet_units_per_chip))
+	if wallet_cost <= 0 or not wallet.buy_in(wallet_cost):
+		return false
+	_buy_in_complete = true
+	return true
 
 ## Record the player's session stack at the start of a hand. Call this BEFORE
 ## PokerSession.start_hand() / start_next_hand(), so the recorded stack is the
@@ -40,6 +55,7 @@ func cash_out() -> int:
 		return 0
 	_cashed_out = true
 	var remaining := int(session.stacks()[player_seat])
-	wallet.cash_out(remaining)
+	var wallet_credit := int(round(float(remaining) * wallet_units_per_chip))
+	wallet.cash_out(wallet_credit)
 	_hand_in_progress = false
 	return remaining

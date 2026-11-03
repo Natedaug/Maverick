@@ -31,7 +31,7 @@ authority over a hand.
 | Area | Maverick | Frontier |
 |---|---|---|
 | Runtime | Godot 4, GDScript, scenes | TypeScript modules with Svelte/Vite UI and CLI harness |
-| Poker | Reusable `addons/poker_engine/`; headless suite has 413 checks; a playable heads-up table consumes `PokerGameState` | Separate TypeScript rules engine, evaluator/pots, CLI/autoplay harness, and Svelte table components |
+| Poker | Reusable `addons/poker_engine/`; live table uses `PokerSession` for multi-hand play; 519 checks currently pass | Separate TypeScript rules engine, evaluator/pots, CLI/autoplay harness, and Svelte table components |
 | AI | Equity-based Hold'em AI and strategy; basic tell system remains a stub | Psychology data model plus a very simple decision function |
 | World | Early scenes and character scaffolding; currently centered on Devil's Draw / Split River Valley | Static region example and a small town-state transition function |
 | Economy | Not implemented yet; table bankroll is now distinguished from wallet/debt | Minimal ledger, debt thresholds, and property catalog functions |
@@ -205,23 +205,25 @@ its sign; zero remains “unknown.” Poker volume and prosperity belong to the
 Rusty Spur town state. Keep the configured exchange rate explicit and do not
 select a canonical rate as part of this implementation.
 
-## Implementation handoff review — commit `462b2a6`
+## First town slice implementation review — 2026-11-02
 
-The commit adds the requested wallet, town-state, reputation, bridge, and
-save/load classes with focused tests. Static review confirms the town thresholds
-and net-stack reputation rules match the approved design. The handoff reports
-469 passing checks (403 prior + 66 new); this review did not rerun that suite.
+The foundations landed in `462b2a6` and the cash-out guard in `6e2293f`. The
+runtime integration now connects `PokerSession`, `EconomyBridge`, `Wallet`,
+`TownState`, `TableReputation`, and `SaveSystem` through `src/poker/table.gd`.
+The player-facing flow supports buy-in, multiple hands on one session stack,
+one town/reputation update per settlement, exactly-once cash-out, and save/load.
+Exchange rate remains an Inspector setting; the default is not a canon decision.
+Ordinary poker loss does not create debt.
 
-This is a **foundation**, not yet the playable end-to-end slice: `src/poker/table.gd`
-still instantiates `PokerGameState` directly with fixed stacks and has no
-references to `EconomyBridge`, `Wallet`, `TownState`, `TableReputation`, or
-`SaveSystem`. There is no player-facing buy-in, multi-hand `PokerSession`
-continuity, town/reputation display, or save/resume flow yet. In addition,
-`EconomyBridge.cash_out()` credits the current stack but does not itself prevent
-a repeated call; make that lifecycle one-shot when wiring it into table exit.
-Likewise, wallet debit and session-stack funding still need one coordinated
-buy-in API. Keep the conversion configurable.
+Validation on 2026-11-02: `godot --headless --editor --path . --quit`, default
+scene headless startup, and all 12 `tests/test_*.gd` scripts completed. The
+suite reports 519 passing checks. `tests/test_rusty_spur_flow.gd` exercises
+buy-in → two hands → town/reputation → leave/cash-out → save/load. Godot emitted
+environment-only certificate/log write warnings under this restricted run and
+the flow test reported four ObjectDB instances leaked at exit; assertions all
+passed. The UI's responsive geometry/effect probe passed at five target sizes.
 
-Next step: connect these services to the live table lifecycle, expose the
-lasting consequence, then verify save/reload through the game flow. Do not mark
-this milestone done until the player's full Rusty Spur loop is playable.
+Remaining exit work is owner validation of rendered visuals, actual audio,
+control feel, and `user://` save behavior on the normal Mac app. Do not mark the
+milestone done until that playthrough confirms the complete loop is legible and
+usable.

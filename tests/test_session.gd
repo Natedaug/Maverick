@@ -29,6 +29,9 @@ func _test_zero_stack_seats_and_button_rotation() -> void:
 	_check(session.current_actor() == 2, "turn maps back to stable seat 2")
 	_check(session.apply_action(2, PokerBetting.Action.FOLD), "small blind folds")
 	_check(session.settle() == {3: 150}, "big blind receives uncontested pot by stable id")
+	var resolved_view := session.snapshot(3)
+	_check(resolved_view.pot == 0 and resolved_view.pots.is_empty(),
+		"settled session snapshot shows the awarded pot as empty")
 	_check(session.start_next_hand(), "next hand starts after settlement")
 	_check(session.button_seat == 2, "button rotates past the empty seat")
 	_check(session.current_actor() == 2, "next hand retains stable action ids")

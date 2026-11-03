@@ -19,6 +19,7 @@ func _init() -> void:
 	_test_ai_folds_junk_facing_river_bet()
 	_test_ai_bets_the_nuts_on_river()
 	_test_ai_plays_full_hands_legally()
+	_test_ai_acts_through_poker_session()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -202,3 +203,12 @@ func _test_ai_plays_full_hands_legally() -> void:
 		# the loop always settles fully, so all 2000 chips are back in stacks
 		_check(remaining_chips == 2000,
 			"chips conserved exactly (hand %d: got %d)" % [h, remaining_chips])
+
+func _test_ai_acts_through_poker_session() -> void:
+	var session := PokerSession.new([1000, 1000], 1, 50, 100, _seed_rng(281))
+	_check(session.start_hand(), "session starts for AI integration")
+	var ai := AIPlayer.new(1, _no_bluff_strategy(_seed_rng(282)))
+	var decision := ai.decide_session(session)
+	_check(decision.has("action") and decision.has("amount"), "session AI returns a materialized action")
+	_check(session.current_actor() != 1, "session AI action advances the stable-seat actor")
+	_check(session.stacks().size() == 2, "session keeps both stable seats")

@@ -210,14 +210,19 @@ func snapshot(viewer_seat: int = -1) -> Dictionary:
 	for card in board:
 		board_codes.append(card.to_code())
 	var stage_names := ["preflop", "flop", "turn", "river", "showdown"]
+	var visible_pot := total_pot()
+	var visible_pots: Array[Dictionary] = pot_breakdown()
+	if stage == Street.SHOWDOWN:
+		visible_pot = 0
+		visible_pots.clear()
 	return {
 		stage = stage_names[stage],
 		board = board_codes,
 		seats = public_seats,
 		button = button,
 		current_actor = betting.to_act,
-		pot = total_pot(),
-		pots = pot_breakdown(),
+		pot = visible_pot,
+		pots = visible_pots,
 		available_actions = available_actions(),
 	}
 

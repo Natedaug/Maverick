@@ -14,6 +14,7 @@ func _init() -> void:
 	print("=== test_save_system.gd ===")
 	_test_save_and_load()
 	_test_load_missing_file_returns_false()
+	_test_malformed_save_does_not_mutate_state()
 
 	print("")
 	print("PASSES: %d" % _passes)
@@ -45,7 +46,7 @@ func _test_save_and_load() -> void:
 	rep.apply_hand_result(200)
 
 	var save: SaveSystem = SaveSystem.new()
-	var path := "user://economy_save_test.json"
+	var path := "/tmp/maverick_economy_save_test_%d.txt" % OS.get_process_id()
 	var ok := save.save_game(wallet, town, rep, path)
 	_check(ok, "save succeeds")
 
@@ -70,5 +71,32 @@ func _test_load_missing_file_returns_false() -> void:
 	var town: TownState = TownState.new()
 	var rep: TableReputation = TableReputation.new()
 	var save: SaveSystem = SaveSystem.new()
-	var ok := save.load_game(wallet, town, rep, "user://nonexistent_save_test.json")
+	var missing_path := "/tmp/maverick_missing_save_test_%d.txt" % OS.get_process_id()
+	if FileAccess.file_exists(missing_path):
+		DirAccess.remove_absolute(missing_path)
+	var ok := save.load_game(wallet, town, rep, missing_path)
 	_check(not ok, "load returns false for missing file")
+
+func _test_malformed_save_does_not_mutate_state() -> void:
+	var path := "/tmp/maverick_malformed_save_test_%d.txt" % OS.get_process_id()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_line("MAVERICK_SAVE_V1")
+	file.store_line("not-a-balance")
+	file.store_line("rusty_spur")
+	file.store_line("0")
+	file.store_line("0")
+	file.store_line("neutral")
+	file.store_line("rusty_spur")
+	file.store_line("0")
+	file.close()
+	var wallet: Wallet = Wallet.new()
+	wallet.balance = 400
+	var town: TownState = TownState.new()
+	town.town_id = "existing_town"
+	var rep: TableReputation = TableReputation.new()
+	rep.lifetime_net = 25
+	var save: SaveSystem = SaveSystem.new()
+	_check(not save.load_game(wallet, town, rep, path), "malformed save is rejected")
+	_check(wallet.balance == 400, "failed load leaves wallet untouched")
+	_check(town.town_id == "existing_town", "failed load leaves town untouched")
+	_check(rep.lifetime_net == 25, "failed load leaves reputation untouched")

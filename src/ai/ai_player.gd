@@ -1,6 +1,6 @@
 class_name AIPlayer
 extends RefCounted
-## Decides legal poker actions for one seat of a PokerGameState.
+## Decides legal poker actions for one seat of a PokerGameState or PokerSession.
 ##
 ## Combines HandStrength equity estimation with a Strategy, then translates
 ## the resulting intent into a legal PokerBetting.Action + amount via a fallback
@@ -36,6 +36,23 @@ func decide(g: PokerGameState) -> Dictionary:
 	var intent: Dictionary = strategy.decide(
 		equity, g.stage, call_amount, pot, opponents)
 	return _materialize(intent, b, g)
+
+## Decide and apply an action through PokerSession's stable-seat API. The
+## session provides only this seat's private cards and public decision context.
+func decide_session(session: PokerSession) -> Dictionary:
+	var context := session.ai_context(seat_index)
+	var hole: Array[PokerCard] = []
+	var board: Array[PokerCard] = []
+	for card in context.hole_cards:
+		hole.append(card)
+	for card in context.board:
+		board.append(card)
+	var opponents: int = context.opponents
+	var equity := HandStrength.equity(
+		hole, board, opponents, equity_iterations, strategy.rng)
+	var intent := strategy.decide(
+		equity, context.stage, context.call_amount, context.pot, opponents)
+	return _materialize_session(intent, session, context)
 
 # --- Internals ---
 
@@ -87,3 +104,51 @@ func _bet_or_raise(frac: float, b: PokerBetting, g: PokerGameState) -> Dictionar
 	ladder.append([PokerBetting.Action.CALL, 0])
 	ladder.append([PokerBetting.Action.CHECK, 0])
 	return _apply_first_legal(g, ladder)
+
+## Materialize an AI intent using the session's current public legal-action
+## options, then submit it with the stable seat ID.
+func _materialize_session(intent: Dictionary, session: PokerSession, context: Dictionary) -> Dictionary:
+	var action: PokerBetting.Action = intent.get("action", PokerBetting.Action.FOLD)
+	match action:
+		PokerBetting.Action.CHECK:
+			return _apply_first_session_action(session, [PokerBetting.Action.CHECK, PokerBetting.Action.CALL])
+		PokerBetting.Action.CALL:
+			return _apply_first_session_action(session, [PokerBetting.Action.CALL, PokerBetting.Action.CHECK])
+		PokerBetting.Action.FOLD:
+			return _apply_first_session_action(session, [PokerBetting.Action.FOLD])
+		PokerBetting.Action.BET, PokerBetting.Action.RAISE:
+			return _session_bet_or_raise(session, action, float(intent.get("frac", 0.5)), context)
+	return _apply_first_session_action(session, [PokerBetting.Action.FOLD])
+
+func _apply_first_session_action(session: PokerSession, actions: Array) -> Dictionary:
+	var options: Array[Dictionary] = session.available_actions()
+	for action in actions:
+		for option in options:
+			if option.get("action", -1) != action:
+				continue
+			if session.apply_action(seat_index, action, 0):
+				return {action = action, amount = 0}
+	return {action = PokerBetting.Action.FOLD, amount = 0}
+
+func _session_bet_or_raise(
+	session: PokerSession,
+	action: PokerBetting.Action,
+	frac: float,
+	context: Dictionary
+) -> Dictionary:
+	var options: Array[Dictionary] = session.available_actions()
+	for option in options:
+		if option.get("action", -1) != action:
+			continue
+		var minimum: int = int(option.get("min_amount", 1))
+		var maximum: int = int(option.get("max_amount", minimum))
+		var desired: int
+		if action == PokerBetting.Action.BET:
+			desired = int(round(float(context.pot) * frac))
+		else:
+			desired = int(context.current_bet) + int(round(float(context.pot) * frac))
+		var target := clampi(desired, minimum, maximum)
+		if session.apply_action(seat_index, action, target):
+			return {action = action, amount = target}
+	return _apply_first_session_action(
+		session, [PokerBetting.Action.CALL, PokerBetting.Action.CHECK, PokerBetting.Action.FOLD])

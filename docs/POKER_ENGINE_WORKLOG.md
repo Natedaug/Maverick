@@ -201,3 +201,72 @@ installation is confirmed.
   at the documented viewports, and collect one playthrough summary from the
   owner. Poker legality remains with the engine/controller; UI sizing is a
   proposal constrained by the engine's legal ranges.
+
+## Responsive table UI pass — 2026-11-02
+
+- Rebuilt the table UI as two states: an explicit buy-in view when no active
+  table snapshot is supplied, and a seated view with scrollable table content
+  plus a persistent action dock. Added UI intent signals for buy-in, leave,
+  save, and load; controller wiring remains separate.
+- Enlarged names, cards, pot, stack, status, and action text. Kept each seat's
+  chip illustration, name/role/stack, and hole cards in one adjacent group;
+  added a visible pot chip pile alongside its exact value.
+- Replaced `SpinBox` bet sizing with a one-chip-step slider, legal min/max,
+  exact target label, ¼/⅓/½/¾/pot/all-in presets, track-side single-step input,
+  keyboard arrows, and touch `−`/`+` controls. Proposals stay inside the
+  engine-provided range; `legal_wager_unit` is read when supplied and otherwise
+  defaults to one chip. Presets use min target plus the selected fraction of
+  current pot; raises include the amount to call in that base.
+- Added responsive grid reflow and a compact wallet/town/reputation/table/session
+  status line. No unimplemented sound or animation controls were added.
+- Headless geometry probe passed without clipping of the primary action buttons
+  at 1152×648, 800×600, 640×480, 390×844, and 360×640. Godot class scan passed;
+  the probe uses synthetic table data. Pixels and actual touch behavior were
+  not inspected, and the new intent signals still need controller integration.
+
+## Table feedback and buy-in polish — 2026-11-02
+
+- Added staggered card reveal/deal motion on newly visible hole and board cards.
+  New chip contributions animate from the contributing seat to the pot; settled
+  payouts animate from pot to the stack that increased in the settlement
+  snapshot. These cues are driven by snapshot changes and do not hold input.
+- Added short synthesized local WAV cues for card, chip, and pot events. No
+  external sound assets are needed. Added footer mute and reduced-motion toggles;
+  reduced motion skips visual tweens while preserving immediate state updates.
+- Corrected pot preset sizing: open bets propose fraction × current pot; raise-to
+  targets include the player's street commitment plus call amount plus fraction
+  × (pot before call + call amount), then snap and clamp to engine bounds.
+  All-in selects the legal max. Hidden opponent backs now animate on each deal
+  and animate again as faces when showdown reveals them.
+- Buy-in affordability now accounts for `wallet_units_per_chip`; Leave is only
+  enabled/visible when a session is active.
+- Godot editor scan, default-scene headless startup, and synthetic effect/
+  geometry probe exited without GDScript/runtime errors. Probe sizes remained
+  1152×648, 800×600, 640×480, 390×844, and 360×640. Audio playback quality,
+  pixel appearance, and a full hands-on session remain unreviewed.
+
+## Runtime town-slice integration — 2026-11-02
+
+- Changed `src/poker/table.gd` to keep a `PokerSession` alive across hands and
+  connect player buy-in, per-hand settlement, table reputation, town state,
+  cash-out, and save/load. The UI reports wallet/world state and explicitly
+  prevents saving or loading an unsettled hand.
+- Added session query/context APIs used by the controller and AI; the AI
+  materializes legal actions through `PokerSession.apply_action()` so the
+  session remains the sole poker rules authority. At showdown the visible pot
+  is cleared after settlement so the UI can animate payout without showing a
+  phantom pot.
+- Added configurable wallet-units-per-chip conversion and coordinated buy-in;
+  the current default is a prototype setting, not a decided canon exchange.
+  Save loading validates the version and data before mutating state.
+- Added coverage for session-based AI actions, conversion, malformed saves, and
+  the complete Rusty Spur flow (buy-in → two hands → settlement/world changes
+  → cash-out → save/load).
+- Validation: Godot editor class scan and default-scene startup completed;
+  all 12 headless test scripts passed, totaling 519 checks. The end-to-end test
+  reports four ObjectDB instances leaked at exit even though its assertions
+  pass. This environment also prints macOS certificate and `user://` log-write
+  warnings. The owner's normal app context should confirm save-path behavior.
+- Work remains uncommitted for owner review. Next step: owner playthrough to
+  assess pixel/audio/control quality, then move to one remembered rival and a
+  fair tell as specified in the roadmap.

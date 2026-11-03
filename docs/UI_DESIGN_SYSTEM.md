@@ -1,6 +1,6 @@
 # Maverick UI Design System
 
-> **Version:** 0.5 (working draft; next table redesign brief captured)
+> **Version:** 0.6 (working draft; responsive table pass implemented)
 > **Status:** Living project guide; revise as the prototype is played and the
 > game grows.  
 > **Scope:** Game interface, interactive controls, poker tables, and reusable
@@ -289,6 +289,31 @@ Acceptance criteria:
 
 ## Interaction and accessibility
 
+### Current table pass status — 2026-11-02
+
+The table controller now connects buy-in, leave, save, and load intents to the
+live economy/session services. The UI displays wallet, town, reputation, poker
+volume, and session status supplied by the controller. The seated view uses
+larger type, adjacent seat/card groups, numeric stacks and pot with chip
+illustrations, and a persistent action dock below scrollable table content.
+Bet sizing uses an engine-bounded integer slider and presets; it assumes a
+one-chip legal unit unless the snapshot provides `legal_wager_unit`. Open bet
+presets propose fraction × current pot; raise-to presets propose player street
+commitment + call amount + fraction × (pot before call + call amount), then
+snap and clamp to engine bounds. The controller owns final legality. Hidden
+opponent backs animate when dealt and turn into faces when showdown reveals
+them.
+
+The implementation adds staggered card reveals, chip travel from a contributing
+seat to the pot, and payout travel from pot to a stack that increases at
+settlement. Short synthesized WAV cues accompany these events; the footer
+exposes mute and reduced-motion toggles. Reduced motion skips visual tweens
+while state updates remain immediate. Geometry/effect probes passed at five
+acceptance viewports and all headless test scripts pass. Rendered pixel
+appearance, actual sound/touch feel, and `user://` save behavior on the owner's
+Mac still need a playthrough review. Buy-in affordability uses the supplied
+wallet exchange rate, and Leave is available only in an active session.
+
 ### Poker action states
 
 - **Available:** clear label and visible focus/hover treatment.
@@ -377,6 +402,11 @@ decision loop come first.
   layouts, visible chip piles, wager slider/presets, card/chip motion, tasteful
   sound, and preservation of the AI's assertive style. Added breakpoints,
   acceptance sizes, criteria, and a staged implementation brief.
+- **0.6:** Implemented the responsive buy-in/seated table, legal wager slider
+  and presets, visible chip stacks/pot, deal/contribution/payout motion, local
+  synthesized audio, mute/reduced-motion controls, and economy/session display.
+  Five target geometries and headless game flows pass. Owner still needs to
+  assess rendered pixels, sound, and interaction feel in the normal app.
 
 ## Lightweight review checklist
 
