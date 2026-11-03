@@ -32,9 +32,21 @@ var _fold_button: Button
 var _next_hand_button: Button
 var _amount_input: SpinBox
 var _wager_range: Label
+var _outer_margins: MarginContainer
+var _layout: VBoxContainer
+var _title: Label
+var _opponent_panel: PanelContainer
+var _player_panel: PanelContainer
+var _felt_panel: PanelContainer
+var _felt_content_style: StyleBoxFlat
+var _center_content: VBoxContainer
+var _controls: HBoxContainer
+var _seat_padding: Array[MarginContainer] = []
 
 func _ready() -> void:
 	_build_interface()
+	resized.connect(_apply_responsive_layout)
+	_apply_responsive_layout()
 
 func render(snapshot: Dictionary, message: String, history: Array[String] = []) -> void:
 	var seats: Array = snapshot.get("seats", [])
@@ -81,6 +93,12 @@ func render(snapshot: Dictionary, message: String, history: Array[String] = []) 
 			wager_min = option.get("min_amount", 1)
 			wager_max = option.get("max_amount", wager_min)
 	var player_turn := current_actor == 0
+	var hand_complete := stage == "showdown"
+	_fold_button.visible = not hand_complete
+	_call_button.visible = not hand_complete
+	_amount_input.visible = not hand_complete
+	_wager_button.visible = not hand_complete
+	_wager_range.visible = not hand_complete
 	_fold_button.disabled = not player_turn
 	_call_button.disabled = not player_turn or check_call_action < 0
 	_call_button.text = "Check" if check_call_action == PokerBetting.Action.CHECK else "Call  %s" % _format_amount(call_amount)
@@ -94,7 +112,7 @@ func render(snapshot: Dictionary, message: String, history: Array[String] = []) 
 	_amount_input.editable = player_turn and wager_action >= 0
 	_wager_range.text = "TARGET %s–%s" % [_format_amount(wager_min), _format_amount(wager_max)] if wager_action >= 0 else ""
 	_update_wager_label(_amount_input.value)
-	_next_hand_button.visible = stage == "showdown"
+	_next_hand_button.visible = hand_complete
 
 func _build_interface() -> void:
 	var backdrop := ColorRect.new()
@@ -103,70 +121,71 @@ func _build_interface() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(backdrop)
 
-	var margins := MarginContainer.new()
-	margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right"]:
-		margins.add_theme_constant_override("margin_" + side, 34)
-	for side in ["top", "bottom"]:
-		margins.add_theme_constant_override("margin_" + side, 20)
-	add_child(margins)
+	_outer_margins = MarginContainer.new()
+	_outer_margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_outer_margins)
 
-	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 10)
-	margins.add_child(layout)
-	var title := _label("DEVIL'S DRAW   ·   THE RUSTY SPUR", 24, PARCHMENT)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	layout.add_child(title)
+	_layout = VBoxContainer.new()
+	_layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_layout.add_theme_constant_override("separation", 8)
+	_outer_margins.add_child(_layout)
+	_title = _label("DEVIL'S DRAW   ·   THE RUSTY SPUR", 24, PARCHMENT)
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_layout.add_child(_title)
 
-	var opponent_panel := _make_seat_panel(false)
-	layout.add_child(opponent_panel)
-	var felt := _panel(FELT, BRASS)
-	felt.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(felt)
-	var felt_style := felt.get_theme_stylebox("panel") as StyleBoxFlat
-	felt_style.content_margin_left = 14
-	felt_style.content_margin_right = 14
-	felt_style.content_margin_top = 14
-	felt_style.content_margin_bottom = 14
-	var center := VBoxContainer.new()
-	center.alignment = BoxContainer.ALIGNMENT_CENTER
-	center.add_theme_constant_override("separation", 7)
-	felt.add_child(center)
+	_opponent_panel = _make_seat_panel(false)
+	_layout.add_child(_opponent_panel)
+	_felt_panel = _panel(FELT, BRASS)
+	_felt_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_felt_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_layout.add_child(_felt_panel)
+	_felt_content_style = _felt_panel.get_theme_stylebox("panel") as StyleBoxFlat
+	_center_content = VBoxContainer.new()
+	_center_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_center_content.alignment = BoxContainer.ALIGNMENT_CENTER
+	_center_content.add_theme_constant_override("separation", 7)
+	_felt_panel.add_child(_center_content)
 
 	_turn_label = _label("YOUR TURN", 14, PARCHMENT)
 	_turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center.add_child(_centered(_turn_label))
+	_center_content.add_child(_centered(_turn_label))
 	_pot_label = _label("POT  0", 20, PAPER)
 	_pot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center.add_child(_centered(_pot_label))
+	_center_content.add_child(_centered(_pot_label))
 	var board_row := HBoxContainer.new()
 	board_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	board_row.add_theme_constant_override("separation", 8)
-	center.add_child(board_row)
+	_center_content.add_child(board_row)
 	for i in range(5):
 		var card := PokerCardView.new()
 		board_row.add_child(card)
 		_board_cards.append(card)
 	_message_label = _label("A seat is waiting for you.", 16, PARCHMENT)
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center.add_child(_centered(_message_label))
+	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_center_content.add_child(_message_label)
 	_history_label = _label("", 12, MUTED)
 	_history_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_history_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_history_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	center.add_child(_centered(_history_label))
+	_center_content.add_child(_history_label)
 
-	var player_panel := _make_seat_panel(true)
-	layout.add_child(player_panel)
-	var controls := HBoxContainer.new()
-	controls.alignment = BoxContainer.ALIGNMENT_CENTER
-	controls.add_theme_constant_override("separation", 8)
-	layout.add_child(controls)
+	_player_panel = _make_seat_panel(true)
+	_layout.add_child(_player_panel)
+	_controls = HBoxContainer.new()
+	_controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	_controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_controls.add_theme_constant_override("separation", 8)
+	_layout.add_child(_controls)
 	_fold_button = _action_button("Fold", Color("#62352A"))
+	_fold_button.name = "FoldButton"
 	_fold_button.pressed.connect(func(): player_action_requested.emit(PokerBetting.Action.FOLD, 0))
-	controls.add_child(_fold_button)
+	_controls.add_child(_fold_button)
 	_call_button = _action_button("Check", Color("#344B3C"))
+	_call_button.name = "CallCheckButton"
 	_call_button.pressed.connect(_emit_check_call)
-	controls.add_child(_call_button)
+	_controls.add_child(_call_button)
 	_amount_input = SpinBox.new()
 	_amount_input.custom_minimum_size = Vector2(100, 42)
 	_amount_input.min_value = 1
@@ -174,22 +193,65 @@ func _build_interface() -> void:
 	_amount_input.step = 10
 	_amount_input.prefix = "to "
 	_amount_input.value_changed.connect(_update_wager_label)
-	controls.add_child(_amount_input)
+	_controls.add_child(_amount_input)
 	_wager_button = _action_button("Bet to 1", Color("#75603C"))
+	_wager_button.name = "WagerButton"
 	_wager_button.pressed.connect(_emit_wager)
-	controls.add_child(_wager_button)
+	_controls.add_child(_wager_button)
 	_wager_range = _label("", 11, MUTED)
-	controls.add_child(_wager_range)
+	_controls.add_child(_wager_range)
 	_next_hand_button = _action_button("Next hand", Color("#344B3C"))
 	_next_hand_button.pressed.connect(func(): next_hand_requested.emit())
 	_next_hand_button.visible = false
-	layout.add_child(_centered(_next_hand_button))
+	_controls.add_child(_next_hand_button)
+
+func _apply_responsive_layout() -> void:
+	if _outer_margins == null:
+		return
+	var compact := size.y < 700.0 or size.x < 900.0
+	var very_compact := size.y < 540.0
+	var side_margin := 12 if size.x < 600.0 else 18 if compact else 34
+	var vertical_margin := 6 if very_compact else 10 if compact else 20
+	_outer_margins.add_theme_constant_override("margin_left", side_margin)
+	_outer_margins.add_theme_constant_override("margin_right", side_margin)
+	_outer_margins.add_theme_constant_override("margin_top", vertical_margin)
+	_outer_margins.add_theme_constant_override("margin_bottom", vertical_margin)
+	_layout.add_theme_constant_override("separation", 4 if very_compact else 6 if compact else 10)
+	_title.add_theme_font_size_override("font_size", 17 if very_compact else 20 if compact else 24)
+	for padding in _seat_padding:
+		var inset := 5 if compact else 10
+		for side in ["left", "right", "top", "bottom"]:
+			padding.add_theme_constant_override("margin_" + side, inset)
+	_felt_content_style.content_margin_left = 8 if compact else 14
+	_felt_content_style.content_margin_right = 8 if compact else 14
+	_felt_content_style.content_margin_top = 6 if compact else 14
+	_felt_content_style.content_margin_bottom = 6 if compact else 14
+	_center_content.add_theme_constant_override("separation", 3 if very_compact else 5 if compact else 7)
+	_turn_label.add_theme_font_size_override("font_size", 11 if compact else 14)
+	_pot_label.add_theme_font_size_override("font_size", 17 if compact else 20)
+	_message_label.add_theme_font_size_override("font_size", 13 if compact else 16)
+	_history_label.add_theme_font_size_override("font_size", 10 if compact else 12)
+	_history_label.visible = not very_compact
+	var text_width := maxf(240.0, size.x - float(side_margin * 2) - 16.0)
+	_message_label.custom_minimum_size.x = text_width
+	_history_label.custom_minimum_size.x = text_width
+	for card in _board_cards + _player_cards + _opponent_cards:
+		card.set_compact(compact)
+	_controls.add_theme_constant_override("separation", 4 if compact else 8)
+	var button_width := 88.0 if compact else 102.0
+	for button in [_fold_button, _call_button, _wager_button]:
+		button.custom_minimum_size = Vector2(button_width, 36 if compact else 40)
+	_amount_input.custom_minimum_size = Vector2(72 if compact else 100, 36 if compact else 42)
+	_wager_range.add_theme_font_size_override("font_size", 9 if compact else 11)
 
 func _make_seat_panel(is_player: bool) -> PanelContainer:
 	var panel := _panel(WOOD, Color("#715C3B"))
 	var content := HBoxContainer.new()
 	content.add_theme_constant_override("separation", 18)
-	panel.add_child(_margin_box(content, 10))
+	var content_margins := _margin_box(content, 10)
+	content_margins.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(content_margins)
+	_seat_padding.append(content_margins)
 	var identity := VBoxContainer.new()
 	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	identity.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -198,8 +260,10 @@ func _make_seat_panel(is_player: bool) -> PanelContainer:
 	var name_label := _label("", 17, PAPER)
 	identity.add_child(name_label)
 	var role_label := _label("", 11, PARCHMENT)
+	role_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	identity.add_child(role_label)
 	var stack_label := _label("STACK  0", 15, PAPER)
+	stack_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	identity.add_child(stack_label)
 	var cards_row := HBoxContainer.new()
 	cards_row.add_theme_constant_override("separation", 5)
@@ -259,7 +323,7 @@ func _format_amount(value: int) -> String:
 func _action_button(text: String, color: Color) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(112, 42)
+	button.custom_minimum_size = Vector2(102, 40)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = color
 	normal.border_color = BRASS
@@ -301,5 +365,7 @@ func _margin_box(child: Control, amount: int) -> MarginContainer:
 
 func _centered(child: Control) -> CenterContainer:
 	var wrapper := CenterContainer.new()
+	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wrapper.add_child(child)
 	return wrapper

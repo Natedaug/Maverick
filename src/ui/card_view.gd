@@ -2,8 +2,8 @@ class_name PokerCardView
 extends PanelContainer
 ## Reusable poker card face/back presentation for table and collection views.
 
-const FACE_WIDTH := 66
-const FACE_HEIGHT := 94
+const FACE_WIDTH := 62
+const FACE_HEIGHT := 88
 
 var _rank_label: Label
 var _suit_label: Label
@@ -53,6 +53,12 @@ func show_empty() -> void:
 	style.set_corner_radius_all(7)
 	add_theme_stylebox_override("panel", style)
 
+func set_compact(compact: bool) -> void:
+	custom_minimum_size = Vector2(56, 76) if compact else Vector2(FACE_WIDTH, FACE_HEIGHT)
+	_rank_label.add_theme_font_size_override("font_size", 14 if compact else 15)
+	_suit_label.add_theme_font_size_override("font_size", 23 if compact else 25)
+	_corner_label.add_theme_font_size_override("font_size", 8)
+
 func _build_card() -> void:
 	var face := MarginContainer.new()
 	face.add_theme_constant_override("margin_left", 5)
@@ -63,12 +69,12 @@ func _build_card() -> void:
 	var face_stack := VBoxContainer.new()
 	face_stack.add_theme_constant_override("separation", 0)
 	face.add_child(face_stack)
-	_rank_label = _label("A", 19)
+	_rank_label = _label("A", 15)
 	face_stack.add_child(_center_x(_rank_label))
-	_suit_label = _label("♠", 35)
+	_suit_label = _label("♠", 25)
 	_suit_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	face_stack.add_child(_center(_suit_label))
-	_corner_label = _label("A\n♠", 10)
+	_corner_label = _label("A\n♠", 8)
 	_corner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	face_stack.add_child(_corner_label)
 	_back_label = _label("✦\nRUSTY\nSPUR\n✦", 12)
