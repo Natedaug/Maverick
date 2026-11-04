@@ -35,7 +35,6 @@ export interface Snapshot {
   hand_number: number;
 }
 
-export type RivalTell = "kempt" | "unkempt" | "neutral";
 export type RivalTiming = "tank" | "snap" | "normal" | "";
 
 export interface Status {
@@ -47,8 +46,8 @@ export interface Status {
   session_active: boolean;
   buy_in_chips: number;
   can_afford_buy_in: boolean;
-  rival_tell: RivalTell;
-  rival_label: string;
+  /** The drifter's visible tell: true = clean, false = dusty and tilted. */
+  rival_kempt: boolean;
   rival_timing: RivalTiming;
   hand_settled: boolean;
 }

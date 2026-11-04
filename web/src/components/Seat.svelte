@@ -3,8 +3,9 @@
   // directly beside the two hole cards at every size (design system rule).
   import Card from "./Card.svelte";
   import ChipStack from "./ChipStack.svelte";
+  import Portrait from "./Portrait.svelte";
   import { formatChips } from "../lib/cards";
-  import type { RivalTell, RivalTiming, SeatState } from "../lib/protocol";
+  import type { RivalTiming, SeatState } from "../lib/protocol";
 
   let {
     seat,
@@ -12,7 +13,7 @@
     role,
     isPlayer = false,
     acting = false,
-    tell = "neutral",
+    kempt = undefined,
     timing = "",
     showCommit = true,
   }: {
@@ -21,15 +22,11 @@
     role: string;
     isPlayer?: boolean;
     acting?: boolean;
-    tell?: RivalTell;
+    /** Opponent only: the visible kempt/unkempt look. Omit for no portrait. */
+    kempt?: boolean;
     timing?: RivalTiming;
     showCommit?: boolean;
   } = $props();
-
-  const TELL_TEXT: Record<Exclude<RivalTell, "neutral">, { label: string; hint: string }> = {
-    kempt: { label: "Kempt", hint: "Steady rhythm — acting quickly lately" },
-    unkempt: { label: "Unkempt", hint: "Shaky rhythm — long pauses lately" },
-  };
 
   const cardSlots = $derived(
     seat.cards.length > 0
@@ -39,7 +36,13 @@
   const thinking = $derived(acting && !isPlayer && (timing === "tank" || timing === "snap" || timing === "normal"));
 </script>
 
-<section class="seat" class:player={isPlayer} class:acting class:folded={seat.folded} aria-label={`${name}'s seat`}>
+<section class="seat" class:player={isPlayer} class:has-look={kempt !== undefined} class:acting class:folded={seat.folded} aria-label={`${name}'s seat`}>
+  {#if kempt !== undefined}
+    <div class="look">
+      <Portrait {kempt} />
+    </div>
+  {/if}
+
   <div class="identity">
     <div class="name-row">
       <h2 class="name">{name}</h2>
@@ -62,14 +65,6 @@
       {/if}
     </div>
   </div>
-
-  {#if !isPlayer && tell !== "neutral"}
-    <div class="read" title={TELL_TEXT[tell].hint}>
-      <span class="read-label">Your read</span>
-      <span class="read-value {tell}">{TELL_TEXT[tell].label}</span>
-      <span class="read-hint">{TELL_TEXT[tell].hint}</span>
-    </div>
-  {/if}
 
   <div class="hand">
     <div class="cards">
@@ -95,8 +90,8 @@
 <style>
   .seat {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
-    grid-template-areas: "identity read hand";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "identity hand";
     align-items: center;
     gap: 10px 20px;
     padding: clamp(8px, 1.4vh, 14px) 18px;
@@ -108,6 +103,15 @@
       border-color 160ms,
       box-shadow 160ms,
       opacity 160ms;
+  }
+
+  .seat.has-look {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "look identity hand";
+  }
+
+  .look {
+    grid-area: look;
   }
 
   .seat.acting {
@@ -187,48 +191,6 @@
 
   .badge.allin {
     color: var(--parchment);
-  }
-
-  .read {
-    grid-area: read;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 2px 8px;
-    align-items: baseline;
-    margin-top: 6px;
-    padding: 6px 10px;
-    border-left: 3px solid var(--brass);
-    background: rgb(0 0 0 / 0.2);
-    border-radius: 0 6px 6px 0;
-    max-width: 30rem;
-  }
-
-  .read-label {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-  }
-
-  .read-value {
-    font-weight: 800;
-    font-size: var(--size-status);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .read-value.kempt {
-    color: #9fd3b4;
-  }
-
-  .read-value.unkempt {
-    color: #f0b48a;
-  }
-
-  .read-hint {
-    grid-column: 1 / -1;
-    font-size: 15px;
-    color: var(--muted);
   }
 
   .hand {
@@ -324,9 +286,14 @@
   @media (max-width: 640px) {
     .seat {
       grid-template-columns: 1fr;
-      grid-template-areas: "identity" "read" "hand";
+      grid-template-areas: "identity" "hand";
       justify-items: start;
       padding: 12px;
+    }
+
+    .seat.has-look {
+      grid-template-columns: auto 1fr;
+      grid-template-areas: "look identity" "hand hand";
     }
 
     .hand {

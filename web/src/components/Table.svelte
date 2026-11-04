@@ -46,7 +46,7 @@
       name="The Drifter"
       role={role(RIVAL)}
       acting={actor === RIVAL}
-      tell={status.rival_tell}
+      kempt={status.rival_kempt}
       timing={status.rival_timing}
       showCommit={live}
     />

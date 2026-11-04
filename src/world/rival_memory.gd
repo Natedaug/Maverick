@@ -6,7 +6,6 @@ extends RefCounted
 ## Per hand, the table calls:
 ##   begin_hand(session, rival_seat)          after the hand is dealt
 ##   observe_action(seat, action, facing_bet) before applying each action
-##   observe_timing("tank" | "snap")          when the rival visibly tanks/snaps
 ##   record_settlement(session, payouts)      once, after PokerSession.settle()
 ##
 ## Fairness: attribution uses only what the rival may know — its own hole
@@ -58,13 +57,6 @@ func observe_action(seat: int, action: PokerBetting.Action, facing_bet: bool) ->
 		_last_aggressor = seat
 	elif action == PokerBetting.Action.FOLD and seat == _rival_seat and facing_bet:
 		_rival_folded_to = _last_aggressor
-
-## The rival's observable decision rhythm for this hand.
-func observe_timing(kind: String) -> void:
-	if not _hand_open or (kind != "tank" and kind != "snap"):
-		return
-	for opp in _opponents:
-		get_memory(str(opp)).record_event(kind, _hand_number)
 
 ## Attribute this hand's memory events and close the hand. Safe to call once;
 ## further calls before the next begin_hand() do nothing.

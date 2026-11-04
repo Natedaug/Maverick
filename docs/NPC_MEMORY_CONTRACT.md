@@ -24,8 +24,7 @@ Every rival keeps one `NPCMemory` Resource per opponent (explicit serializable d
 | `suck_outs_delivered` | int | Times this rival won with the worse hand |
 | `stone_cold_bluffs` | int | Bluffs caught with zero showdown value |
 | `folded_to_aggression` | int | Times this rival folded to a bet/raise |
-| `tank_count` | int | Times this rival took unusually long to act |
-| `snap_count` | int | Times this rival acted instantly |
+| `kempt` | bool | The visible tell: clean (`true`) or dusty and tilted (`false`), see §4 |
 
 ### Weight Rules (repair Frontier's clamp bug)
 
@@ -47,10 +46,7 @@ Each event is recorded once per hand per opponent who was involved:
 | `stone_cold_worked` | +0.20 | "Stone cold worked" | Rival bluffed with zero showdown value, won |
 | `folded_to_aggression` | -0.10 | "Folded under pressure" | Rival folded to a bet or raise |
 | `cooler_loss` | -0.15 | "Cooler" | Rival lost with a strong hand to a stronger one |
-| `tank` | 0.0 | "In the tank" | Rival took longer than threshold to act |
-| `snap` | 0.0 | "Snap" | Rival acted within instant-action threshold |
-
-**Tank/snap don't change weight directly** — they feed the tell system (see section 4).
+Tank/snap think-time is table flavor, not a memory event (revised 2026-11-04, see §4).
 
 ### Hand-result attribution
 
@@ -78,22 +74,33 @@ Rationale: A grudge from 50 hands ago still matters, but less than one from 5 ha
 
 ## 4. Tell System (one tell, observable, learnable)
 
-**Selected tell: "Unkempt vs Kempt" betting rhythm**
+**Selected tell: Kempt vs Unkempt — how the rival looks** (owner revision 2026-11-04)
 
-A rival's `tank` and `snap` counts over the last 5 hands determine their current mental state:
+*Kempt* and *unkempt* describe the rival's appearance: clean and pressed, or
+dusty and disheveled. The original draft of this section tied the words to
+betting rhythm; the owner corrected that on 2026-11-04.
 
-| State | Condition | Observable Behavior | Player Exploit |
+In code the tell is one stored binary, `NPCMemory.kempt: bool`.
+
+| State | When | What the player sees | How he plays |
 |---|---|---|---|
-| **Kempt** | `snap >= 3` in last 5 hands | Instant actions, steady chip placement | Bluff more; they're on autopilot |
-| **Unkempt** | `tank >= 3` in last 5 hands | Long pauses, shaky bet sizing | Value bet thin; they're tilted/distracted |
-| **Neutral** | otherwise | Normal timing | Play straightforward |
+| **Kempt** (`true`) | default; recovers once `weight > -0.25` | clean-shaven, hat level, collar buttoned | his normal, disciplined game — memory adds no bias |
+| **Unkempt** (`false`) | tilt reaches `weight <= -0.5` | hat knocked askew, stubble, trail dust, collar loose, sweat | loose: calls lighter, bluffs weak hands more (value bet thin) |
 
-**UI exposure:** The rival's name tag or avatar shows a small icon:
-- 🎯 Kempt (steady)
-- 🌀 Unkempt (shaken)
-- (nothing) Neutral
+- **What tilts him** is the burn events in §2: suck-outs he suffers, bluffs the
+  player catches, coolers, and folding to the player's pressure. Taking pots off
+  the player (positive events) and decay calm him down.
+- **Hysteresis** (`-0.5` to go unkempt, `-0.25` to clean up) keeps the look for
+  several hands instead of flickering. It changes only between hands, in
+  `finish_hand()`, and the hand history notes the change ("The drifter's collar
+  has come loose…" / "…brushes the dust from his coat.").
+- **Tank/snap** pauses stay as table flavor only: random (20% tank, 20% snap),
+  unrelated to memory or cards, and no longer recorded.
 
-**Fairness rule:** The tell is **probabilistic, not deterministic**. A Kempt rival can still have a strong hand; an Unkempt rival can still bluff. The player must learn over multiple hands that the correlation exists — never guaranteed.
+**UI exposure:** a portrait of the drifter in his seat shows the two looks
+(placeholder vector art until painted art exists), with a short caption.
+
+**Fairness rule:** The tell is **probabilistic, not deterministic**. A Kempt rival can still bluff; an Unkempt rival still folds most junk and still has strong hands. The player must learn over multiple hands that the correlation exists — never guaranteed.
 
 ---
 
@@ -101,12 +108,15 @@ A rival's `tank` and `snap` counts over the last 5 hands determine their current
 
 `AIPlayer.decide_session()` consults `NPCMemory` for the player (seat 0) and applies weight-based bias:
 
-| Memory Weight | Effect on AI Action |
+| Rival state | Effect on AI Action |
 |---|---|
-| `weight > 0.5` (grudge held against player) | More likely to call player's bets; less likely to fold to player |
-| `weight < -0.5` (rival likes/respects player) | More likely to fold to player aggression; less likely to bluff into player |
-| `suck_outs_delivered > 2` | Rival is overconfident; slightly more likely to bluff |
-| `stone_cold_caught > 1` | Rival is wary; less likely to bluff into player |
+| Kempt | none — memory never moves a kempt rival's decisions |
+| Unkempt | a fold facing a bet may become a call; a check with equity < 0.5 may become a bluff bet (0.6 pot) |
+
+The chance of each shift is the unkempt bias: 25% of the cap at the edge of
+tilt, rising to the full cap at `weight <= -2.0`. Tilt never adds folds or
+gives up bets. The earlier lifetime-counter bluff adjustments
+(`get_bluff_adjustment`) were removed with this revision.
 
 **Fairness rule:** Memory bias shifts action probabilities by at most ±15%. The poker engine's legality checks still govern all actions. Memory never overrides legality.
 
@@ -126,18 +136,13 @@ var suck_outs_suffered: int = 0
 var suck_outs_delivered: int = 0
 var stone_cold_bluffs: int = 0
 var folded_to_aggression: int = 0
-var tank_count: int = 0
-var snap_count: int = 0
-var recent_tanks: Array[int] = []  # hand numbers of last 5 tanks
-var recent_snaps: Array[int] = []  # hand numbers of last 5 snaps
+var kempt: bool = true  # the visible tell (§4)
 
 func record_event(event: String, hand_number: int) -> bool
-func finish_hand(hand_number: int) -> void  # hands_seen++, last_seen_hand, decay
+func finish_hand(hand_number: int) -> void  # hands_seen++, last_seen_hand, decay, update_appearance
+func update_appearance() -> void  # kempt/unkempt hysteresis
 func decay() -> void
-func get_tell_state() -> String  # "kempt" / "unkempt" / "neutral"
-func get_bias() -> float  # -1.0 to +1.0 decision bias
-func get_label() -> String  # human-readable state
-func get_bluff_adjustment() -> float
+func get_bias() -> float  # 0 while kempt; loose-play chance while unkempt (<= 0.15)
 func to_dict() -> Dictionary / static func from_dict(data) -> NPCMemory
 ```
 
@@ -153,15 +158,14 @@ var memories: Dictionary = {}  # opponent_id -> NPCMemory
 func get_memory(opponent_id: String) -> NPCMemory
 func begin_hand(session: PokerSession, rival_seat: int) -> void
 func observe_action(seat: int, action: PokerBetting.Action, facing_bet: bool) -> void
-func observe_timing(kind: String) -> void            # "tank" / "snap"
 func record_settlement(session: PokerSession, payouts: Dictionary) -> void
 ```
 
 ### `AIPlayer` extension
 
-Add `memory: NPCMemory` property. `decide_session()` adjusts bluff frequency with
-`get_bluff_adjustment()`, then `apply_memory_bias()` shifts the intent with
-probability `|get_bias()|`. `pick_timing()` rolls the visible rhythm (§4).
+Add `memory: NPCMemory` property. `decide_session()` calls
+`apply_memory_bias()`, which shifts the intent with
+probability `get_bias()`. `pick_timing()` rolls random think-time flavor.
 
 ---
 
@@ -169,7 +173,7 @@ probability `|get_bias()|`. `pick_timing()` rolls the visible rhythm (§4).
 
 `NPCMemory` is a `Resource` — it can be saved via `ResourceSaver` or included in the existing `SaveSystem` plain-text format. For Milestone 3, extend `SaveSystem` to also persist `RivalMemory` entries.
 
-Save fields per opponent: `opponent_id`, `weight`, `hands_seen`, `last_seen_hand`, `suck_outs_suffered`, `suck_outs_delivered`, `stone_cold_bluffs`, `folded_to_aggression`, `tank_count`, `snap_count`, plus `recent_tanks`/`recent_snaps` so the tell state survives a reload.
+Save fields per opponent: `opponent_id`, `weight`, `hands_seen`, `last_seen_hand`, `suck_outs_suffered`, `suck_outs_delivered`, `stone_cold_bluffs`, `folded_to_aggression`, and `kempt` so the look survives a reload. Saves written before the 2026-11-04 revision have no `kempt`; it is derived from weight and their old tank/snap fields are ignored.
 
 Format `MAVERICK_SAVE_V2`: the eight V1 lines, a memory count, then one JSON line per memory. V1 saves still load (with no rival memory). A malformed file is rejected without mutating any state.
 
@@ -179,22 +183,22 @@ Format `MAVERICK_SAVE_V2`: the eight V1 lines, a memory count, then one JSON lin
 
 | Test | What it verifies |
 |---|---|
-| `test_npc_memory.gd` | weight signed, no clamp at zero; decay reduces magnitude; tell state flips kempt↔unkempt |
+| `test_npc_memory.gd` | weight signed, no clamp at zero; decay reduces magnitude; tilt turns him unkempt between hands and the look holds (hysteresis) |
 | `test_rival_memory.gd` | suck_out detection, stone_cold detection, cooler attribution |
-| `test_ai_memory_bias.gd` | AI with negative memory weight folds more to player aggression |
+| `test_ai_memory_bias.gd` | kempt rival unaffected; unkempt rival calls lighter and bluffs more, never tighter; timing is flavor only |
 | `test_save_system.gd` | memory round-trip, V1 compatibility, malformed memory block rejected |
 | `test_rusty_spur_flow.gd` | live table records hands into rival memory; save/load restores it |
 
-The tell label logic is covered in `test_npc_memory.gd`; a separate `test_tell_ui.gd` was not added.
+The appearance logic is covered in `test_npc_memory.gd`; the bridge test checks `rival_kempt` is a bool.
 
 ---
 
 ## 9. Open Decisions (owner)
 
-- Tell icon/visual design (emoji vs sprite vs color)
+- Portrait art: painted/sprite art to replace the placeholder vector portrait
 - Decay rate (0.97 proposed)
-- Weight bias cap (±15% proposed)
-- Which UI surface shows the tell (name tag, avatar, status line)
+- Weight bias cap (15% proposed) and the -0.5 / -0.25 look thresholds
+- ~~Which UI surface shows the tell~~ — a portrait in the rival's seat (2026-11-04)
 
 ---
 
@@ -206,10 +210,8 @@ The tell label logic is covered in `test_npc_memory.gd`; a separate `test_tell_u
 
 These were needed to make the approved rules consistent; the owner may revisit any of them.
 
-- **Weight wording.** §1 called negative weights "grudges", while §5 says negative weight makes the rival fold more and bluff less. The implementation follows the mechanics in §2, §5 and §8: negative = burned/wary, positive = emboldened.
-- **What drives the tell (not specified in §4).** The rival's timing comes from its memory of the player: an emboldened rival (weight ≥ +0.5) tanks ~60% of decisions (snaps 10%); a wary rival (weight ≤ −0.5) snaps ~60% (tanks 10%); otherwise 20%/20%. This keeps §4's exploit column true: **Unkempt** rivals call lighter (value bet thin), **Kempt** rivals fold more to pressure (bluff more). It is probabilistic, so the tell is learnable, not certain.
-- **Bias strength.** No effect while |weight| < 0.5; above that the shift probability scales linearly to the 15% cap at |weight| = 2.0. Wary rivals only abandon low-equity bets (bluffs), never value bets.
+- **Superseded 2026-11-04.** The first implementation drove kempt/unkempt from tank/snap rhythm and made burned rivals play warier. The owner clarified that the words mean appearance; §4 and §5 above now record the decision: tilt (negative weight) makes him unkempt and loose, and timing is flavor. Negative weight still means "burned by this opponent".
 - **Attribution.** "Pre-river" means the turn. A suck-out needs a showdown on a full board. A stone-cold bluff means the rival made the last bet/raise holding only high card on the final board. A cooler means the rival lost at showdown with two pair or better without being ahead on the turn. Folds count only when the rival faced a bet. The rival uses only its own cards, public actions/board, and opponent cards shown at showdown.
-- **Counting.** `hands_seen` increments once per settled hand (not once per event). Tank/snap is recorded at most once per hand each; the tell window is the last 5 hands by hand number.
-- **UI surface.** The live table appends `KEMPT` / `UNKEMPT` to the rival's role line, and the table text says "goes into the tank…" / "acts without a pause." Tank = 1.8 s, snap = 0.12 s, normal = 0.55 s.
+- **Counting.** `hands_seen` increments once per settled hand (not once per event).
+- **UI surface.** The Svelte table shows the portrait; the legacy Godot table appends `KEMPT` / `UNKEMPT` to the rival's role line. Think-time flavor text says "goes into the tank…" / "acts without a pause." Tank = 1.8 s, snap = 0.12 s, normal = 0.55 s.
 

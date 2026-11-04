@@ -71,8 +71,8 @@ func _run() -> void:
 	_check(_last.get("type", "") == "state", "state message typed")
 	_check(_seats().size() == 2, "state carries both seats")
 	_check(int(_last.status.get("wallet_balance", -1)) == 4000, "status carries the wallet")
-	_check(_last.status.has("rival_label") and _last.status.has("rival_timing"),
-		"status carries the rival tell")
+	_check(_last.status.get("rival_kempt") is bool and _last.status.has("rival_timing"),
+		"status carries the rival's look as a bool")
 	_check(_last.get("phase", "") == "reveal_cards", "opening reveal phase is explicit")
 	_check(_seats()[0].get("cards", []).size() == 2, "player's own cards are visible")
 	_check(_seats()[1].get("cards", []).is_empty() and int(_seats()[1].get("hidden_cards", 0)) == 2,

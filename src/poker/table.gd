@@ -9,9 +9,13 @@ const AI_EQUITY_ITERATIONS := 80
 const OPENING_REVEAL_SECONDS := 0.75
 const PLAYER_ACTION_CONFIRM_SECONDS := 0.35
 const AI_THINK_SECONDS := 0.55
-## Rival tell rhythm (Milestone 3): a visible long pause or an instant action.
+## Rival think-time flavor: a visible long pause or an instant action. Not a
+## tell — the tell is the drifter's appearance (NPCMemory.kempt).
 const AI_TANK_SECONDS := 1.8
 const AI_SNAP_SECONDS := 0.12
+## History lines when the drifter's appearance changes between hands.
+const LOOK_UNKEMPT := "The drifter's collar has come loose; there's trail dust on his coat."
+const LOOK_KEMPT := "The drifter straightens his hat and brushes the dust from his coat."
 const PLAYER_SEAT := 0
 const RIVAL_SEAT := 1
 const AI_ACTION_REVEAL_SECONDS := 0.65
@@ -199,7 +203,6 @@ func _continue_hand() -> void:
 			_continuation_running = false
 			return
 		var timing := _ai.pick_timing()
-		_rival_memory.observe_timing(timing)
 		_rival_timing = timing
 		var think_seconds := AI_THINK_SECONDS
 		match timing:
@@ -245,6 +248,8 @@ func _settle_hand() -> void:
 		return
 	var payouts := _session.settle()
 	_bridge.hand_settled()
+	var rival_mem := _rival_memory.get_memory(str(PLAYER_SEAT))
+	var was_kempt := rival_mem.kempt
 	_rival_memory.record_settlement(_session, payouts)
 	_hand_settled = true
 	if payouts.is_empty():
@@ -256,6 +261,10 @@ func _settle_hand() -> void:
 			descriptions.append("%s take%s %s chips" % [winner_name, "" if int(seat_id) == 0 else "s", _format_amount(int(payouts[seat_id]))])
 		_last_message = "; ".join(descriptions) + "."
 	_record_history(_last_message)
+	if rival_mem.kempt != was_kempt:
+		var look_line := LOOK_UNKEMPT if was_kempt else LOOK_KEMPT
+		_record_history(look_line)
+		_last_message += " " + look_line
 	_last_message += " Rusty Spur: %s. Reputation: %s." % [
 		_town_state.state, _table_reputation.get_label()]
 	_settlement_reveal_pending = true
@@ -328,8 +337,7 @@ func _render() -> void:
 		buy_in_chips = default_buy_in_chips,
 		can_afford_buy_in = wallet_units_per_chip > 0.0 \
 			and _wallet.get_balance() >= _wallet_cost(default_buy_in_chips),
-		rival_tell = _rival_memory.get_memory(str(PLAYER_SEAT)).get_tell_state(),
-		rival_label = _rival_memory.get_memory(str(PLAYER_SEAT)).get_label(),
+		rival_kempt = _rival_memory.get_memory(str(PLAYER_SEAT)).kempt,
 		rival_timing = _rival_timing,
 		hand_settled = _hand_settled,
 	}

@@ -22,7 +22,6 @@ func _init() -> void:
 	_test_stone_cold_worked()
 	_test_stone_cold_caught()
 	_test_plain_showdown_records_nothing_but_decays()
-	_test_timing_recorded_once_per_hand()
 	_test_settlement_is_idempotent()
 
 	print("")
@@ -192,19 +191,6 @@ func _test_plain_showdown_records_nothing_but_decays() -> void:
 	_settle(h[0], h[1])
 	_check(_near(mem.weight, NPCMemory.DECAY_RATE), "only decay applies (got %f)" % mem.weight)
 	_check(mem.hands_seen == 1, "hand counted")
-
-func _test_timing_recorded_once_per_hand() -> void:
-	var h := _new_hand(["7c", "2d", "As", "Ad", "Kh", "9c", "4s", "3d", "8h"])
-	var rm: RivalMemory = h[1]
-	rm.observe_timing("tank")
-	rm.observe_timing("tank")
-	rm.observe_timing("snap")
-	rm.observe_timing("bogus")
-	var mem := rm.get_memory(str(PLAYER))
-	_check(mem.tank_count == 1, "two tanks in one hand count once (got %d)" % mem.tank_count)
-	_check(mem.snap_count == 1, "snap counted (got %d)" % mem.snap_count)
-	_check(mem.weight == 0.0, "timing does not change weight")
-	_check(not rm.memories.has(str(RIVAL)), "rival keeps no memory of itself")
 
 func _test_settlement_is_idempotent() -> void:
 	var h := _new_hand(["7c", "7d", "As", "Kd", "Ah", "9c", "4s", "2d", "7h"])

@@ -4,21 +4,23 @@ This is the task-level counterpart to the [Project Compass](PROJECT_COMPASS.md).
 It tracks what exists, what needs to be decided, and what proves each milestone.
 Reorder it when playtests or owner decisions change the plan; record why.
 
-## Current snapshot — 2026-11-03
+## Current snapshot — 2026-11-04
 
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 721 checks across 16 headless test scripts pass (Godot 4.7.2), including
+  All 725 checks across 16 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
 - **Rival memory (Milestone 3):** the owner approved
   [`NPC_MEMORY_CONTRACT.md`](NPC_MEMORY_CONTRACT.md) on 2026-11-03. The drifter
   now remembers suck-outs, coolers, stone-cold bluffs, and folds to pressure;
-  memory nudges its decisions (≤15%, probabilistic), drives a visible
-  tank/snap rhythm shown as KEMPT/UNKEMPT, and persists in save format V2
-  (V1 saves still load). Contract §10 records clarifications for owner review.
+  memory persists in save format V2 (V1 saves still load). On 2026-11-04 the
+  owner clarified that kempt/unkempt means how clean or dirty the drifter
+  looks: tilt from bad beats makes him unkempt (shown by his portrait), and an
+  unkempt drifter plays loose (calls lighter, bluffs more, ≤15%,
+  probabilistic). Tank/snap pauses are now flavor only. See contract §4–§5.
 - **UI:** the latest responsive pass has larger type, adjacent player/card
   groups, visible chip stacks and pot, a smooth legal wager slider with
   fractional/pot/all-in presets, card/chip motion, synthesized cues, mute, and
@@ -36,9 +38,9 @@ Reorder it when playtests or owner decisions change the plan; record why.
   conversion, and loan terms remain open.
 - **Source safety:** town foundations are on `462b2a6`, the cash-out guard and
   review updates on `6e2293f`, and the interim responsive UI code on `c2a1fe8`.
-  Runtime integration is on `d04545a`. The Milestone 3 rival-memory work and
-  the flow-test repair are committed on the local `milestone-3-rival-memory`
-  branch, pending merge to `main` after owner playtest.
+  Runtime integration is on `d04545a`. Rival memory (`7b8b74a`), the Svelte
+  table (`ca8ec01`), and the tracked web export preset (`2947eb0`) were merged
+  to `main` and pushed to `origin` on 2026-11-04 at the owner's request.
   The UI redesign brief is committed. Frontier has local commits `adfa16d` and
   `b6c8af8` with a salvage map but no remote backup.
 - **Integration plan:** the approved Frontier design (`6420dba`, revised in
@@ -51,8 +53,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 0. **Svelte UI spike (owner decision 2026-11-03) — working; owner playtest
    pending.** The Rusty Spur table runs in `web/` (Svelte 5 + Vite) around a
    Godot web build, over `WebBridge` JSON messages. Automated Chrome runs
-   bought in, played hands to showdown, saw tank/snap and a KEMPT/UNKEMPT
-   read develop naturally, and fit 1440×900, 1280×800, 1152×648 and 800×600
+   bought in, played hands to showdown, and fit 1440×900, 1280×800, 1152×648 and 800×600
    without scrolling (390×844 scrolls with the action dock pinned). Exit when
    the owner can buy in, play several hands, see the rival's tell, and
    leave/save from the Svelte table and prefers it. The old Godot-drawn table
@@ -63,9 +64,10 @@ Reorder it when playtests or owner decisions change the plan; record why.
    settlement, save/load, and leaving/cash-out. Record any concrete defects.
 2. Confirm the configurable wallet/chip exchange rate and `user://` save path
    behave as expected in the owner's normal Godot app context.
-3. Owner playtest of the rival: over several hands, does the KEMPT/UNKEMPT
-   tell feel noticeable, fair, and worth acting on? Review contract §10 and the
-   open tuning choices in §9 (icon, decay, bias cap, UI surface). Do not add
+3. Owner playtest of the rival: over several hands, does the drifter's
+   kempt/unkempt look feel noticeable, fair, and worth acting on? Review the
+   open tuning choices in contract §9 (portrait art, decay, bias cap, look
+   thresholds). Do not add
    the wider Frontier economy or progression systems yet.
 4. Add an off-device remote backup for Frontier if it should survive device
    loss. It currently has local Git history only.

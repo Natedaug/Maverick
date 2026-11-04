@@ -13,11 +13,11 @@ var _passes: int = 0
 func _init() -> void:
 	print("=== test_ai_memory_bias.gd ===")
 	_test_no_memory_no_change()
-	_test_dead_zone_no_change()
-	_test_emboldened_resists_folding()
-	_test_wary_folds_more_to_aggression()
-	_test_wary_abandons_bluffs_not_value_bets()
-	_test_timing_tell_follows_memory()
+	_test_kempt_rival_plays_straight()
+	_test_unkempt_calls_lighter()
+	_test_unkempt_bluffs_more()
+	_test_unkempt_never_weakens_play()
+	_test_timing_is_flavor_only()
 	_test_session_decisions_stay_legal()
 
 	print("")
@@ -44,6 +44,7 @@ func _ai(weight: float, seed_value: int = 7) -> AIPlayer:
 	var mem := NPCMemory.new()
 	mem.opponent_id = "0"
 	mem.weight = weight
+	mem.update_appearance()
 	ai.set_memory(mem)
 	return ai
 
@@ -61,43 +62,48 @@ func _test_no_memory_no_change() -> void:
 	var intent := {action = PokerBetting.Action.FOLD}
 	_check(ai.apply_memory_bias(intent, 0.1, 40).action == PokerBetting.Action.FOLD, "no memory, intent unchanged")
 
-func _test_dead_zone_no_change() -> void:
-	var ai := _ai(0.4)
+func _test_kempt_rival_plays_straight() -> void:
+	for weight in [0.0, 0.4, 5.0]:
+		var ai := _ai(weight)
+		_check(ai.memory.kempt, "weight %f is kempt" % weight)
+		var r := _rate(ai, {action = PokerBetting.Action.FOLD}, 0.1, 40, PokerBetting.Action.CALL)
+		_check(r == 0.0, "kempt rival (weight %f) never shifts (rate %f)" % [weight, r])
+
+func _test_unkempt_calls_lighter() -> void:
+	var ai := _ai(-5.0)
+	_check(not ai.memory.kempt, "deeply tilted rival is unkempt")
 	var r := _rate(ai, {action = PokerBetting.Action.FOLD}, 0.1, 40, PokerBetting.Action.CALL)
-	_check(r == 0.0, "weight inside dead zone never shifts (rate %f)" % r)
+	_check(r > 0.10 and r < 0.20, "unkempt rival calls instead of folding ~15%% (rate %f)" % r)
+	var mild := _rate(_ai(-0.6), {action = PokerBetting.Action.FOLD}, 0.1, 40, PokerBetting.Action.CALL)
+	_check(mild > 0.02 and mild < r, "milder tilt, smaller shift (rate %f)" % mild)
+	var free := _rate(ai, {action = PokerBetting.Action.FOLD}, 0.1, 0, PokerBetting.Action.CALL)
+	_check(free == 0.0, "no call when there is nothing to call")
 
-func _test_emboldened_resists_folding() -> void:
-	var r := _rate(_ai(5.0), {action = PokerBetting.Action.FOLD}, 0.1, 40, PokerBetting.Action.CALL)
-	_check(r > 0.10 and r < 0.20, "emboldened rival calls instead of folding ~15%% (rate %f)" % r)
-	var free := _rate(_ai(5.0), {action = PokerBetting.Action.FOLD}, 0.1, 0, PokerBetting.Action.CALL)
-	_check(free == 0.0, "no shift when there is nothing to call")
+func _test_unkempt_bluffs_more() -> void:
+	var check := {action = PokerBetting.Action.CHECK}
+	var weak := _rate(_ai(-5.0), check, 0.2, 0, PokerBetting.Action.BET)
+	_check(weak > 0.10 and weak < 0.20, "unkempt rival bluffs a weak hand ~15%% (rate %f)" % weak)
+	var strong := _rate(_ai(-5.0), check, 0.8, 0, PokerBetting.Action.BET)
+	_check(strong == 0.0, "only weak hands turn into bluffs (rate %f)" % strong)
 
-func _test_wary_folds_more_to_aggression() -> void:
-	var r := _rate(_ai(-5.0), {action = PokerBetting.Action.CALL}, 0.4, 40, PokerBetting.Action.FOLD)
-	_check(r > 0.10 and r < 0.20, "wary rival folds to a bet ~15%% (rate %f)" % r)
-	var mild := _rate(_ai(-1.0), {action = PokerBetting.Action.CALL}, 0.4, 40, PokerBetting.Action.FOLD)
-	_check(mild > 0.04 and mild < r, "smaller grievance, smaller shift (rate %f)" % mild)
+func _test_unkempt_never_weakens_play() -> void:
+	var ai := _ai(-5.0)
+	var call := _rate(ai, {action = PokerBetting.Action.CALL}, 0.4, 40, PokerBetting.Action.FOLD)
+	var bet := _rate(ai, {action = PokerBetting.Action.BET, frac = 0.6}, 0.2, 0, PokerBetting.Action.CHECK)
+	_check(call == 0.0 and bet == 0.0, "tilt never adds folds or gives up bets (%f, %f)" % [call, bet])
 
-func _test_wary_abandons_bluffs_not_value_bets() -> void:
-	var bet := {action = PokerBetting.Action.BET, frac = 0.6}
-	var bluff := _rate(_ai(-5.0), bet, 0.2, 0, PokerBetting.Action.CHECK)
-	_check(bluff > 0.10 and bluff < 0.20, "wary rival abandons a bluff ~15%% (rate %f)" % bluff)
-	var value := _rate(_ai(-5.0), bet, 0.8, 0, PokerBetting.Action.CHECK)
-	_check(value == 0.0, "value bets are untouched (rate %f)" % value)
-
-func _test_timing_tell_follows_memory() -> void:
+func _test_timing_is_flavor_only() -> void:
 	var counts := {}
-	for weight in [-2.0, 0.0, 2.0]:
+	for weight in [-5.0, 0.0, 5.0]:
 		var ai := _ai(weight, 11)
 		var tally := {tank = 0, snap = 0, normal = 0}
 		for i in range(TRIALS):
 			tally[ai.pick_timing()] += 1
 		counts[weight] = tally
-	_check(counts[-2.0].snap > counts[-2.0].tank * 3, "wary rival mostly snaps (%s)" % str(counts[-2.0]))
-	_check(counts[2.0].tank > counts[2.0].snap * 3, "emboldened rival mostly tanks (%s)" % str(counts[2.0]))
-	_check(counts[0.0].tank > 0 and counts[0.0].snap > 0 and counts[0.0].normal > counts[0.0].tank,
-		"neutral rival mixes rhythms (%s)" % str(counts[0.0]))
-	_check(counts[-2.0].tank > 0 and counts[2.0].snap > 0, "tell is never deterministic")
+	for weight in counts:
+		var t: Dictionary = counts[weight]
+		_check(t.tank > TRIALS * 0.15 and t.tank < TRIALS * 0.25 and t.snap > TRIALS * 0.15 \
+			and t.snap < TRIALS * 0.25, "weight %f: ~20%% tank / ~20%% snap (%s)" % [weight, str(t)])
 
 func _test_session_decisions_stay_legal() -> void:
 	# Play many hands with extreme memory; every decision must be applied.

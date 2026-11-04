@@ -112,7 +112,7 @@ func _test_rival_memory_round_trip() -> void:
 	var rival := RivalMemory.new()
 	var mem := rival.get_memory("0")
 	mem.record_event("suck_out_suffered", 4)
-	mem.record_event("tank", 4)
+	mem.record_event("stone_cold_caught", 4)
 	mem.finish_hand(4)
 	var save: SaveSystem = SaveSystem.new()
 	var path := "/tmp/maverick_memory_save_test_%d.txt" % OS.get_process_id()
@@ -126,7 +126,7 @@ func _test_rival_memory_round_trip() -> void:
 	_check(absf(back.weight - mem.weight) < 0.0001, "memory weight restored (got %f)" % back.weight)
 	_check(back.suck_outs_suffered == 1 and back.hands_seen == 1 and back.last_seen_hand == 4,
 		"memory counters restored")
-	_check(back.recent_tanks == mem.recent_tanks, "tell window restored")
+	_check(not mem.kempt and not back.kempt, "unkempt look restored")
 
 func _test_legacy_v1_save_loads_without_memory() -> void:
 	var path := "/tmp/maverick_v1_save_test_%d.txt" % OS.get_process_id()

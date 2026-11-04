@@ -125,10 +125,9 @@ func render(snapshot: Dictionary = {}, message: String = "", history: Array[Stri
 	_opponent_name.text = str(opponent.get("name", "THE DRIFTER"))
 	_player_role.text = _seat_role(0, button_seat, _current_actor, player)
 	_opponent_role.text = _seat_role(1, button_seat, _current_actor, opponent)
-	# Milestone 3 tell: the rival's recent decision rhythm (never its cards).
-	var rival_label := str(world_status.get("rival_label", ""))
-	if not rival_label.is_empty():
-		_opponent_role.text += "  ·  %s" % rival_label.to_upper()
+	# Milestone 3 tell: the rival's appearance (never its cards).
+	if world_status.has("rival_kempt"):
+		_opponent_role.text += "  ·  %s" % ("KEMPT" if bool(world_status.rival_kempt) else "UNKEMPT")
 	_player_stack.text = "STACK  %s" % _format_amount(int(player.get("stack", 0)))
 	_opponent_stack.text = "STACK  %s" % _format_amount(int(opponent.get("stack", 0)))
 	_set_chip_pile(_chip_piles[0], int(opponent.get("stack", 0)))

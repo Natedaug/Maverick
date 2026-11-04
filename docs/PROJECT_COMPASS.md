@@ -62,6 +62,11 @@ details data-driven until settled.
 | Product title | Whether to retain Texas Hold'em Frontier, adopt Dust & Decisions, or choose another title |
 | Currency details | Names/units for wallet currency, currency exchange, loan terms, repayment schedule, property valuation, and how reputation is represented |
 
+**Decision record — 2026-11-04:** kempt/unkempt is the rival's *appearance*
+(clean vs. dirty), not betting rhythm. In code it is one bool. Tilt from bad
+beats makes him unkempt; unkempt plays loose (calls lighter, bluffs more);
+tank/snap pauses are flavor only. Details: `NPC_MEMORY_CONTRACT.md` §4–§5.
+
 **Decision record — 2026-11-03:** after seeing the Godot-drawn table, the owner
 chose a Svelte interface around a Godot web build (option A of three: Svelte
 shell + Godot web build; Svelte + windowless Godot server; all-Godot UI). First

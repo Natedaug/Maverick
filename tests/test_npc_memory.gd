@@ -10,12 +10,10 @@ func _init() -> void:
 	_test_signed_weights_no_clamp()
 	_test_event_counters_and_unknown_event()
 	_test_finish_hand_decays_and_counts_once()
-	_test_tell_state_unkempt()
-	_test_tell_state_kempt()
-	_test_tell_state_neutral_and_window()
-	_test_bias_dead_zone_scale_and_cap()
-	_test_bluff_adjustment()
-	_test_label()
+	_test_starts_kempt_and_events_wait_for_hand_end()
+	_test_tilt_turns_unkempt_and_holds()
+	_test_winning_pots_clean_him_up()
+	_test_bias_only_while_unkempt()
 	_test_dict_round_trip()
 
 	print("")
@@ -68,76 +66,79 @@ func _test_finish_hand_decays_and_counts_once() -> void:
 	_check(absf(m.weight - (-0.35 * 0.97)) < 0.001, "decay 0.97 applied once (got %f)" % m.weight)
 	_check(m.suck_outs_suffered == 1, "decay does not touch counters")
 
-func _test_tell_state_unkempt() -> void:
+func _test_starts_kempt_and_events_wait_for_hand_end() -> void:
 	var m := NPCMemory.new()
-	for h in [1, 2, 3]:
-		m.record_event("tank", h)
+	_check(m.kempt, "a fresh rival is kempt")
+	m.record_event("stone_cold_caught", 1)
+	m.record_event("suck_out_suffered", 1)
+	_check(m.weight <= -NPCMemory.UNKEMPT_AT, "tilted enough (weight %f)" % m.weight)
+	_check(m.kempt, "appearance does not change mid-hand")
+	m.finish_hand(1)
+	_check(not m.kempt, "unkempt once the hand is over")
+
+func _test_tilt_turns_unkempt_and_holds() -> void:
+	var m := NPCMemory.new()
+	m.record_event("suck_out_suffered", 1)
+	m.finish_hand(1)
+	_check(m.kempt, "one bad beat is not enough (weight %f)" % m.weight)
+	m.record_event("suck_out_suffered", 2)
+	m.record_event("folded_to_aggression", 2)
+	m.finish_hand(2)
+	_check(not m.kempt, "repeated bad beats make him unkempt (weight %f)" % m.weight)
+	var hands := 0
+	var h := 3
+	while not m.kempt and hands < 100:
 		m.finish_hand(h)
-	_check(m.get_tell_state() == "unkempt", "3 tank hands in window = unkempt (got %s)" % m.get_tell_state())
+		h += 1
+		hands += 1
+	_check(hands >= 10, "the look holds for several hands, no flicker (%d)" % hands)
+	_check(m.kempt and hands < 100, "with no new tilt he cleans up eventually (%d)" % hands)
+	var winner := NPCMemory.new()
+	for i in range(10):
+		winner.record_event("suck_out_delivered", i)
+		winner.finish_hand(i)
+	_check(winner.kempt, "a rival who is winning stays kempt")
 
-func _test_tell_state_kempt() -> void:
+func _test_winning_pots_clean_him_up() -> void:
 	var m := NPCMemory.new()
-	for h in [1, 2, 4]:
-		m.record_event("snap", h)
-	m.finish_hand(5)
-	_check(m.get_tell_state() == "kempt", "3 snap hands in window = kempt (got %s)" % m.get_tell_state())
+	m.weight = -0.6
+	m.finish_hand(1)
+	_check(not m.kempt, "tilted rival is unkempt")
+	m.record_event("stone_cold_worked", 2)
+	m.record_event("suck_out_delivered", 2)
+	m.finish_hand(2)
+	_check(m.kempt, "taking pots off the player calms him down (weight %f)" % m.weight)
 
-func _test_tell_state_neutral_and_window() -> void:
+func _test_bias_only_while_unkempt() -> void:
 	var m := NPCMemory.new()
-	m.record_event("tank", 1)
-	m.record_event("snap", 2)
-	_check(m.get_tell_state() == "neutral", "mixed rhythm = neutral")
-	var old := NPCMemory.new()
-	for h in [1, 2, 3]:
-		old.record_event("tank", h)
-	old.finish_hand(20)
-	_check(old.get_tell_state() == "neutral", "tanks outside the 5-hand window expire")
-	var dup := NPCMemory.new()
-	for i in range(3):
-		dup.record_event("tank", 7)
-	_check(dup.tank_count == 1 and dup.get_tell_state() == "neutral", "repeat tanks in one hand count once")
-
-func _test_bias_dead_zone_scale_and_cap() -> void:
-	var m := NPCMemory.new()
-	m.weight = 0.4
-	_check(m.get_bias() == 0.0, "no bias inside the ±0.5 dead zone")
-	m.weight = 1.0
-	_check(absf(m.get_bias() - 0.075) < 0.001, "bias scales with weight (got %f)" % m.get_bias())
-	m.weight = 10.0
-	_check(absf(m.get_bias() - 0.15) < 0.001, "positive bias capped at 0.15 (got %f)" % m.get_bias())
 	m.weight = -10.0
-	_check(absf(m.get_bias() + 0.15) < 0.001, "negative bias capped at -0.15 (got %f)" % m.get_bias())
-
-func _test_bluff_adjustment() -> void:
-	var m := NPCMemory.new()
-	_check(m.get_bluff_adjustment() == 0.0, "no history, no bluff change")
-	m.suck_outs_delivered = 3
-	_check(m.get_bluff_adjustment() > 0.0, "overconfident rival bluffs more")
-	m.suck_outs_delivered = 0
-	m.stone_cold_bluffs = 2
-	_check(m.get_bluff_adjustment() < 0.0, "wary rival bluffs less")
-
-func _test_label() -> void:
-	var m := NPCMemory.new()
-	_check(m.get_label() == "", "neutral label is empty")
-	for h in [1, 2, 3]:
-		m.record_event("tank", h)
-	_check(m.get_label() == "Unkempt", "label = Unkempt (got %s)" % m.get_label())
-	var k := NPCMemory.new()
-	for h in [1, 2, 3]:
-		k.record_event("snap", h)
-	_check(k.get_label() == "Kempt", "label = Kempt (got %s)" % k.get_label())
+	_check(m.get_bias() == 0.0, "kempt rival has no memory bias, however burned")
+	m.finish_hand(1)
+	_check(absf(m.get_bias() - 0.15) < 0.001, "deep tilt caps at 0.15 (got %f)" % m.get_bias())
+	m.weight = -0.3
+	var floor_bias := NPCMemory.UNKEMPT_MIN_SHARE * NPCMemory.WEIGHT_BIAS_CAP
+	_check(absf(m.get_bias() - floor_bias) < 0.001, "still unkempt, still a little loose (got %f)" % m.get_bias())
+	m.weight = -1.0
+	_check(absf(m.get_bias() - 0.075) < 0.001, "loose shift scales with tilt (got %f)" % m.get_bias())
+	var up := NPCMemory.new()
+	up.weight = 10.0
+	up.finish_hand(1)
+	_check(up.get_bias() == 0.0, "positive weight never shifts decisions")
 
 func _test_dict_round_trip() -> void:
 	var m := NPCMemory.new()
 	m.opponent_id = "0"
 	m.record_event("suck_out_suffered", 1)
-	m.record_event("tank", 1)
-	m.record_event("tank", 2)
+	m.record_event("stone_cold_caught", 1)
 	m.finish_hand(2)
 	var copy := NPCMemory.from_dict(JSON.parse_string(JSON.stringify(m.to_dict())))
 	_check(copy.opponent_id == "0", "id survives JSON round trip")
 	_check(absf(copy.weight - m.weight) < 0.0001, "weight survives")
 	_check(copy.hands_seen == 1 and copy.last_seen_hand == 2, "hand counters survive")
-	_check(copy.suck_outs_suffered == 1 and copy.tank_count == 2, "event counters survive")
-	_check(copy.recent_tanks == m.recent_tanks, "tell window survives")
+	_check(copy.suck_outs_suffered == 1 and copy.stone_cold_bluffs == 1, "event counters survive")
+	_check(not m.kempt and not copy.kempt, "unkempt look survives")
+	var held := NPCMemory.from_dict({weight = -0.3, kempt = false})
+	_check(not held.kempt, "a saved look inside the hysteresis band is kept")
+	var legacy := NPCMemory.from_dict({weight = -0.8, recent_tanks = [1, 2, 3]})
+	_check(not legacy.kempt, "an older save derives the look from weight")
+	_check(NPCMemory.from_dict({weight = 0.4}).kempt, "an older save with mild weight is kempt")
