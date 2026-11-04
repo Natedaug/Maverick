@@ -62,6 +62,14 @@ details data-driven until settled.
 | Product title | Whether to retain Texas Hold'em Frontier, adopt Dust & Decisions, or choose another title |
 | Currency details | Mostly settled 2026-11-04 (silver/gold, floating rate, debts, deed); still open: how reputation is represented, and final names for the Crown and drifter |
 
+**Decision record — 2026-11-04 (walkable town):** the owner asked for a
+walkable Devil's Draw now, before the playtest. Godot draws a top-down street
+(`TownMap`) behind the Svelte interface; walking to a door opens that place's
+panel. Art is the free Jarppix "Top down WESTERN tileset", chosen by the owner
+and kept out of the public repo (its page allows use in any project but
+doesn't address redistribution). It is painted overhead art, not the
+approved pixel-art style, so treat it as stand-in art for the first slice.
+
 **Decision record — 2026-11-04 (Milestone 4 economy and story):** silver and
 gold currencies with a town-driven floating exchange rate; a day passes on
 sleep; the player arrives owing The Dealer 250 gold due day 14; one property,

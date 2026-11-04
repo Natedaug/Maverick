@@ -15,6 +15,8 @@
   let logTab = $state<"journal" | "hands">("journal");
   let confirmNewGame = $state(false);
   const view = $derived(game.state);
+  // Walking the street: Godot's town shows behind the interface.
+  const inWorld = $derived(!!view && !bootError && !view.status.intro?.length && !isSeated(view));
 
   // Table sounds follow confirmed state changes from Godot.
   let previous: TableState | null = null;
@@ -41,9 +43,9 @@
   }}
 />
 
-<GodotHost onError={(m) => (bootError = m)} />
+<GodotHost onError={(m) => (bootError = m)} visible={inWorld} />
 
-<div class="shell">
+<div class="shell" class:world={inWorld}>
   <header>
     <div class="title">
       {#if view?.status.table?.mode !== "duel"}
@@ -161,6 +163,14 @@
     background:
       radial-gradient(ellipse at 50% -10%, rgb(240 215 161 / 0.12), transparent 55%),
       linear-gradient(180deg, #1d1a14, var(--ink));
+  }
+
+  .shell.world {
+    background: transparent;
+  }
+
+  .shell.world header {
+    background: rgb(23 22 18 / 0.92);
   }
 
   header {

@@ -17,6 +17,7 @@ extends Control
 ##   accept_crown(level)  decline_crown()  concede_duel()  dismiss_crown_result()
 ## The season (Milestone 4 step 5):
 ##   begin_season()  (after the arrival)  new_game()  (away from the table)
+## Walking the town (TownMap): move(direction)  go_to_place(place)
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -113,10 +114,14 @@ var _settlement_reveal_pending := false
 var _runout_visible_board_cards := -1
 var _rival_timing := ""  # "tank" / "snap" / "normal" while the rival thinks
 var _web_bridge: WebBridge
+var _town_map: TownMap
 
 func _ready() -> void:
 	_rng.randomize()
 	_initialize_world_data()
+	_town_map = TownMap.new()
+	add_child(_town_map)
+	_town_map.near_changed.connect(func(_place: String) -> void: _render())
 	if WebBridge.host_present():
 		# The Svelte host page draws the interface; Godot runs the game.
 		_web_bridge = WebBridge.new()
@@ -732,6 +737,27 @@ func _table_status() -> Dictionary:
 		out["hands_to_next_level"] = CrownDuel.hands_to_next_level(hand)
 	return out
 
+# --- Walking the town ---
+
+## Walking intent from the interface. Ignored while seated at a table.
+func move(direction: Vector2) -> void:
+	if _town_map == null:
+		return
+	_town_map.set_move(Vector2.ZERO if _session != null else direction)
+
+## Stand at a place's door (opening a place from the menu).
+func go_to_place(place: String) -> void:
+	if _town_map != null and _session == null and _town_map.go_to(place):
+		_render()
+
+func _world_status() -> Dictionary:
+	if _town_map == null:
+		return {}
+	var places := {}
+	for id in TownMap.PLACES:
+		places[id] = TownMap.PLACES[id].name
+	return {near = _town_map.near, places = places, has_art = _town_map.has_art()}
+
 func _town_event(message: String) -> void:
 	_record_history(message)
 	_set_message(message)
@@ -797,6 +823,7 @@ func _render() -> void:
 		crown = _crown_status(),
 		intro = [] if _campaign.intro_seen else ARRIVAL.duplicate(),
 		journal = _campaign.journal.duplicate(true),
+		world = _world_status(),
 		table = _table_status(),
 		deed = {
 			offer_pending = _deed_offer_pending,
@@ -807,6 +834,9 @@ func _render() -> void:
 			can_afford = _wallet.balance >= DeedWager.STAKE_SILVER,
 		},
 	}
+	if _town_map != null:
+		_town_map.set_scene(_rival_memory.get_memory(str(PLAYER_SEAT)).kempt,
+			CrownDuel.is_pending(_campaign.crown_status))
 	var phase := ""
 	if _opening_reveal_pending:
 		phase = "reveal_cards"

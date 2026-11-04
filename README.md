@@ -42,7 +42,9 @@ npm run dev             # open http://localhost:5174
 ```
 
 To play the Devil's Draw slice and know what to look for, see
-[the playtest guide](docs/PLAYTEST_GUIDE.md).
+[the playtest guide](docs/PLAYTEST_GUIDE.md). The walkable town uses a free
+art pack that isn't in the repo; see
+[assets/third_party/README.md](assets/third_party/README.md) to install it.
 
 Requires Godot 4.7.2 web export templates (Editor → Manage Export Templates).
 The Godot-drawn table was removed on 2026-11-04; `godot --path .` now only

@@ -108,6 +108,8 @@ export interface Status {
   intro: string[];
   /** The story so far, oldest first. */
   journal: { day: number; text: string }[];
+  /** The walkable town (Godot's TownMap). */
+  world?: { near: string; places: Record<string, string>; has_art: boolean };
   /** The drifter's claim deed, staked as a side bet on one hand. */
   deed: {
     offer_pending: boolean;
@@ -149,7 +151,9 @@ export type Command =
   | { type: "concede" }
   | { type: "crown_dismiss" }
   | { type: "begin" }
-  | { type: "new_game" };
+  | { type: "new_game" }
+  | { type: "move"; x: number; y: number }
+  | { type: "go"; place: string };
 
 export function isSeated(state: TableState | null): state is TableState & { snapshot: Snapshot } {
   return !!state && Array.isArray((state.snapshot as Snapshot).seats) && (state.snapshot as Snapshot).seats.length >= 2;

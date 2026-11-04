@@ -20,6 +20,7 @@ extends Node
 ##     {"type": "crown_accept", "level": "standard" | "double"} | {"type": "crown_decline"}
 ##     {"type": "concede"} | {"type": "crown_dismiss"}
 ##     {"type": "begin"} | {"type": "new_game"}
+##     {"type": "move", "x": -1..1, "y": -1..1} | {"type": "go", "place": "rusty_spur" | ...}
 ##
 ## Commands call PokerTable's public commands, which re-validate everything.
 
@@ -99,6 +100,14 @@ func handle_command(command: Dictionary) -> bool:
 			_table.begin_season()
 		"new_game":
 			_table.new_game()
+		"move":
+			_table.move(Vector2(clampf(float(command.get("x", 0)), -1.0, 1.0),
+				clampf(float(command.get("y", 0)), -1.0, 1.0)))
+		"go":
+			var place := str(command.get("place", ""))
+			if not TownMap.PLACES.has(place):
+				return false
+			_table.go_to_place(place)
 		_:
 			return false
 	return true

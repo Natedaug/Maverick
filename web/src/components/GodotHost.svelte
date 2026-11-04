@@ -1,12 +1,11 @@
 <script lang="ts">
   // Boots the Godot web export from /godot (built by `npm run godot:export`).
-  // Godot draws nothing yet (Svelte draws the interface), so the canvas is a
-  // fixed 64x64 and hidden; rendering a full-window canvas every frame slowed
-  // the game's own timers badly on software-rendered browsers. When Godot
-  // gets a world view, switch back to canvasResizePolicy 2 and show it.
+  // Godot draws the walkable town; the canvas fills the window behind the
+  // interface and is shown only while you're walking the street. Godot runs in
+  // low-processor mode, so it only redraws when something moves.
   import { onMount } from "svelte";
 
-  let { onError }: { onError: (message: string) => void } = $props();
+  let { onError, visible = false }: { onError: (message: string) => void; visible?: boolean } = $props();
   let canvas: HTMLCanvasElement;
 
   type EngineCtor = new (config: Record<string, unknown>) => {
@@ -35,7 +34,7 @@
       executable: "/godot/maverick",
       canvas,
       args: [],
-      canvasResizePolicy: 0,
+      canvasResizePolicy: 2,
       focusCanvas: false,
       ensureCrossOriginIsolationHeaders: false,
       experimentalVK: false,
@@ -45,17 +44,21 @@
   });
 </script>
 
-<canvas bind:this={canvas} id="godot-canvas" class="godot" width="64" height="64" tabindex="-1" aria-hidden="true"></canvas>
+<canvas bind:this={canvas} id="godot-canvas" class="godot" class:visible tabindex="-1" aria-hidden="true"></canvas>
 
 <style>
   .godot {
     position: fixed;
-    left: 0;
-    top: 0;
-    width: 64px;
-    height: 64px;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
     z-index: 0;
     pointer-events: none;
     opacity: 0;
+    transition: opacity 300ms;
+  }
+
+  .godot.visible {
+    opacity: 1;
   }
 </style>

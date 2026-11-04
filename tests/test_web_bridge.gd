@@ -104,6 +104,15 @@ func _test_season_commands() -> void:
 	_check((_last.status.intro as Array).size() == 3, "a new game shows the arrival")
 	_check((_last.status.journal as Array).size() == 1, "a new game starts a new journal")
 	_check(_send({type = "begin"}) and (_last.status.intro as Array).is_empty(), "begin closes the arrival")
+	var world: Dictionary = _last.status.get("world", {})
+	_check((world.get("places", {}) as Dictionary).has("rusty_spur") and str(world.get("near", "x")) == "",
+		"status lists the town's places; you start on the street")
+	_check(_send({type = "go", place = "assay"}) and str(_last.status.world.near) == "assay", "go stands you at a door")
+	_check(not _send({type = "go", place = "nowhere"}), "unknown place rejected")
+	_check(_send({type = "move", x = 0, y = 1}), "move accepted")
+	var left := func(): return str(_last.status.world.near) == ""
+	_check(await _wait_for(left, 3.0), "walking away from the door is reported")
+	_send({type = "move", x = 0, y = 0})
 
 func _new_table(silver: int, tag: String) -> PokerTable:
 	var table: PokerTable = TABLE_SCENE.instantiate()
@@ -236,7 +245,7 @@ func _test_town_commands() -> void:
 	_check(_send({type = "save"}) and _send({type = "sleep"}), "save, then sleep")
 	_check(str(_last.message).contains("(Saved.)"), "each morning autosaves")
 	_check(_send({type = "load"}) and int(_eco().day) == 17, "load restores the morning autosave")
-	_test_season_commands()
+	await _test_season_commands()
 
 func _seats() -> Array:
 	return _last.get("snapshot", {}).get("seats", [])
@@ -302,7 +311,7 @@ func _run() -> void:
 	_check(_send({type = "load"}), "load accepted")
 	_check(int(_last.status.wallet_balance) == wallet_after_leave, "load restores the wallet")
 
-	_test_town_commands()
+	await _test_town_commands()
 
 	table.queue_free()
 	await process_frame

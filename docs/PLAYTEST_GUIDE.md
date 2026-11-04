@@ -17,9 +17,11 @@ stay at the table. To start over at any time: ⚙ → Start a new game.
 3. **His deed.** Once he's down to half his chips, he may stake his silver
    claim against 500 of your silver. Win it and it pays 150 silver every
    morning.
-4. **Town business.** Away from the table you can trade silver for gold (the
-   rate follows the town's mood), borrow from the House, pay The Dealer, and
-   sleep to end the day. Each morning autosaves.
+4. **Town business.** Walk the street with WASD or the arrow keys and press E
+   at a door, or use the Places menu. The assay office trades silver for gold
+   (the rate follows the town's mood) and sends payments to The Dealer. The
+   Rusty Spur has the table and the House Line. The boarding house is where
+   you sleep to end the day. Each morning autosaves.
 5. **Crane.** Reach 3,000 silver in net worth and Augustus Crane invites you
    to his riverboat. Or let the marker go past day 14 and he summons you.
    Pick standard or double stakes, then play a heads-up freezeout.

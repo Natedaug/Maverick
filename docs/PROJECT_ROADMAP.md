@@ -9,7 +9,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 993 checks across 19 headless test scripts pass (Godot 4.7.2), including
+  All 1018 checks across 20 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
@@ -156,6 +156,12 @@ Build order, each step tested before the next:
    debts, the town turning, Crane), Start a new game (Settings, confirmed),
    and an autosave each morning and after Crane. Next: the owner plays a
    full season with [`PLAYTEST_GUIDE.md`](PLAYTEST_GUIDE.md).
+6. **Done 2026-11-04 (owner request).** Walkable Devil's Draw: `TownMap`
+   draws the street in Godot (assay office, Rusty Spur, boarding house,
+   riverboat landing), with the drifter outside the saloon (dusty when
+   unkempt) and Crane's riverboat at the landing when he's in town. WASD or
+   arrows to walk, E at a door, or the Places menu. Art: the local-only
+   Jarppix pack (stand-in shapes without it). `test_town_map.gd`.
 
 **Exit when:** the player can explain how a poker decision changed a character
 relationship and the town's state, and can continue play after either a win or

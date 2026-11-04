@@ -25,3 +25,7 @@ tests/.results/
 
 # export_presets.cfg is tracked (web preset only, no credentials). Keep
 # signing keys/passwords in .godot/export_credentials.cfg, which stays ignored.
+
+# Third-party art whose license does not allow redistribution stays local.
+# See assets/third_party/README.md for where each pack comes from.
+assets/third_party/*/
