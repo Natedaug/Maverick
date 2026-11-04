@@ -2,7 +2,6 @@
 .godot/
 .import/
 export.cfg
-export_presets.cfg
 *.translation
 *.tmp
 *.uid.tmp
@@ -23,3 +22,6 @@ dist/
 
 # Test output
 tests/.results/
+
+# export_presets.cfg is tracked (web preset only, no credentials). Keep
+# signing keys/passwords in .godot/export_credentials.cfg, which stays ignored.
