@@ -103,6 +103,12 @@ for after the slice.
   deed, else bars you from the tables until paid and costs reputation).
 - **Property:** the drifter's silver-claim deed (§4): won from him at the
   table, pays **150 silver a day** when you sleep, worth about 100 gold.
+- **Deed wager details (implementation defaults, 2026-11-04; owner may tune):**
+  once per sitting, after a hand where the drifter is down to half his buy-in
+  or less, he offers the deed against **500 of the player's silver** (escrowed).
+  The next pot's winner takes the side stakes; a split returns both. Losing the
+  deed is a heavy memory event for him (-0.6, enough to turn him unkempt).
+  If the House later seizes the deed, it stays with the House.
 - **First Crown:** the Gilded Riverboat's owner (§5; working name Augustus
   Crane). Win/lose stakes as proposed; his stakes are in gold.
 

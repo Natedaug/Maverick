@@ -31,6 +31,9 @@ var markers: Array[int] = []
 ## Set when a called marker could not be covered by seizing the deed.
 var barred: bool = false
 var has_claim_deed: bool = false
+## The drifter still holds his claim (he can stake it). Once he loses it, the
+## deed is the player's, and if the House seizes it, it stays with the House.
+var drifter_has_claim: bool = true
 
 func dealer_overdue(day: int) -> bool:
 	return dealer_owed_gold > 0 and day > dealer_due_day
@@ -100,6 +103,7 @@ func to_dict() -> Dictionary:
 		markers = markers.duplicate(),
 		barred = barred,
 		has_claim_deed = has_claim_deed,
+		drifter_has_claim = drifter_has_claim,
 	}
 
 ## Null when `data` is malformed.
@@ -119,4 +123,5 @@ static func from_dict(data: Dictionary) -> Ledger:
 		ledger.markers.append(int(day))
 	ledger.barred = bool(data.get("barred", false))
 	ledger.has_claim_deed = bool(data.get("has_claim_deed", false))
+	ledger.drifter_has_claim = bool(data.get("drifter_has_claim", not ledger.has_claim_deed))
 	return ledger

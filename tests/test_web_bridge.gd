@@ -42,6 +42,48 @@ func _on_sent(json: String) -> void:
 	if typeof(parsed) == TYPE_DICTIONARY:
 		_last = parsed
 
+## The drifter stakes his deed; the offer threshold is raised so it comes at once.
+func _test_deed_flow() -> void:
+	var table: PokerTable = TABLE_SCENE.instantiate()
+	table.save_path = SAVE_PATH + ".deed"
+	table.starting_wallet_balance = 5000
+	table.deed_offer_stack_share = 10.0
+	root.add_child(table)
+	await process_frame
+	_bridge = WebBridge.new()
+	table.add_child(_bridge)
+	_bridge.attach(table)
+	_bridge.state_sent.connect(_on_sent)
+	_send({type = "buy_in", chips = 500})
+	_check(await _wait_for(_player_can_act), "deed flow: player gets a decision")
+	_send({type = "action", action = PokerBetting.Action.FOLD, amount = 0})
+	_check(await _wait_for(func(): return _last.get("phase", "") == "hand_over"), "deed flow: hand over")
+	var deed: Dictionary = _last.status.get("deed", {})
+	_check(bool(deed.get("offer_pending", false)) and int(deed.get("stake_silver", 0)) == 500,
+		"the drifter offers his deed against 500 silver")
+	_check(str(_last.history.back()).contains("My claim in Split River"), "the offer is in the history")
+	var silver := int(_last.status.wallet_balance)
+	_check(_send({type = "deed_accept"}), "deed_accept accepted")
+	_check(int(_last.status.wallet_balance) == silver - 500, "the stake is escrowed")
+	_check(bool(_last.status.deed.wager_active) and int(_last.snapshot.get("hand_number", 0)) == 2,
+		"the wager rides on hand 2")
+	var done := func():
+		return _last.get("phase", "") == "hand_over" or _player_can_act()
+	while await _wait_for(done) and _player_can_act():
+		_send({type = "action", action = PokerBetting.Action.FOLD, amount = 0})
+	_check(_last.get("phase", "") == "hand_over", "deed hand settles")
+	_check(not bool(_last.status.deed.wager_active), "the wager is settled")
+	if bool(_last.status.economy.has_claim_deed):
+		# The drifter folded first: the deed is yours and your stake comes back.
+		_check(int(_last.status.wallet_balance) == silver, "won the deed; stake returned")
+		_check(str(_last.history).contains("You win the drifter's claim deed"), "the win is in the history")
+	else:
+		_check(int(_last.status.wallet_balance) == silver - 500, "folding loses the stake; he keeps the deed")
+		_check(str(_last.history).contains("pockets your 500 silver"), "the loss is in the history")
+	_check(not bool(_last.status.deed.offer_pending), "he only offers once per sitting")
+	table.queue_free()
+	await process_frame
+
 func _eco() -> Dictionary:
 	return _last.get("status", {}).get("economy", {})
 
@@ -144,9 +186,11 @@ func _run() -> void:
 
 	_test_town_commands()
 
+	table.queue_free()
+	await process_frame
+	await _test_deed_flow()
+
 	print("PASSES: %d" % _passes)
 	print("FAILURES: %d" % _failures)
 	await create_timer(0.35).timeout
-	table.queue_free()
-	await process_frame
 	quit(1 if _failures > 0 else 0)

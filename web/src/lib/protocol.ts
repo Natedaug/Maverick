@@ -75,6 +75,15 @@ export interface Status {
   rival_timing: RivalTiming;
   hand_settled: boolean;
   economy: Economy;
+  /** The drifter's claim deed, staked as a side bet on one hand. */
+  deed: {
+    offer_pending: boolean;
+    wager_active: boolean;
+    stake_silver: number;
+    value_gold: number;
+    income_silver: number;
+    can_afford: boolean;
+  };
 }
 
 export type Phase = "" | "reveal_cards" | "settling" | "hand_over";
@@ -99,7 +108,9 @@ export type Command =
   | { type: "buy_gold" | "sell_gold" | "pay_dealer"; gold: number }
   | { type: "borrow" }
   | { type: "repay"; index: number }
-  | { type: "sleep" };
+  | { type: "sleep" }
+  | { type: "deed_accept" }
+  | { type: "deed_decline" };
 
 export function isSeated(state: TableState | null): state is TableState & { snapshot: Snapshot } {
   return !!state && Array.isArray((state.snapshot as Snapshot).seats) && (state.snapshot as Snapshot).seats.length >= 2;

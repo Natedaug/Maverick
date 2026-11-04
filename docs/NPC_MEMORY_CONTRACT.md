@@ -46,7 +46,11 @@ Each event is recorded once per hand per opponent who was involved:
 | `stone_cold_worked` | +0.20 | "Stone cold worked" | Rival bluffed with zero showdown value, won |
 | `folded_to_aggression` | -0.10 | "Folded under pressure" | Rival folded to a bet or raise |
 | `cooler_loss` | -0.15 | "Cooler" | Rival lost with a strong hand to a stronger one |
+| `deed_lost` | -0.60 | "Lost his claim" | The player won the drifter's staked claim deed (Milestone 4) |
+| `deed_defended` | +0.30 | "Kept his claim" | The drifter won a hand his deed was staked on |
+
 Tank/snap think-time is table flavor, not a memory event (revised 2026-11-04, see §4).
+Losing the deed alone tilts him past the unkempt threshold.
 
 ### Hand-result attribution
 

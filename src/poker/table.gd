@@ -11,6 +11,8 @@ extends Control
 ## Town commands (Milestone 4 economy; only while not seated at the table):
 ##   buy_gold(n)  sell_gold(n)  pay_dealer(gold)  borrow_marker()
 ##   repay_marker(index)  sleep()
+## The drifter's deed offer (between hands, when he has lost half his chips):
+##   accept_deed_wager()  decline_deed_wager()
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -25,6 +27,11 @@ const AI_SNAP_SECONDS := 0.12
 ## History lines when the drifter's appearance changes between hands.
 const LOOK_UNKEMPT := "The drifter's collar has come loose; there's trail dust on his coat."
 const LOOK_KEMPT := "The drifter straightens his hat and brushes the dust from his coat."
+## The drifter's deed (Milestone 4 step 3).
+const DEED_OFFER := "The drifter lays a folded deed on the felt: \"My claim in Split River, against %s of your silver. Next hand takes it.\""
+const DEED_WON := "You win the drifter's claim deed. He stares at it a long moment before he lets go."
+const DEED_LOST := "The drifter pockets your %s silver and tucks his deed away."
+const DEED_SPLIT := "A split pot. The deed and your silver go back where they came from."
 const PLAYER_SEAT := 0
 const RIVAL_SEAT := 1
 const AI_ACTION_REVEAL_SECONDS := 0.65
@@ -45,6 +52,9 @@ signal state_changed(state: Dictionary)
 @export var save_path: String = SAVE_PATH
 ## Silver per chip at the Rusty Spur (owner decision 2026-11-04: chips at par).
 @export_range(0.01, 100.0, 0.01) var wallet_units_per_chip: float = 1.0
+## The drifter offers his deed at or below this share of his buy-in (tests
+## raise it to trigger the offer on demand).
+@export var deed_offer_stack_share: float = DeedWager.OFFER_STACK_SHARE
 
 var _rng := RandomNumberGenerator.new()
 var _session: PokerSession
@@ -56,6 +66,10 @@ var _table_reputation: TableReputation
 var _save_system := SaveSystem.new()
 var _rival_memory := RivalMemory.new()
 var _campaign := Campaign.new()
+var _buy_in_chips := 0
+var _deed_offer_pending := false
+var _deed_wager_active := false
+var _deed_offered_this_sitting := false
 var _last_message := "Welcome to the Rusty Spur. Buy in when you're ready."
 var _history: Array[String] = []
 var _hand_settled := false
@@ -122,6 +136,10 @@ func buy_in(chip_amount: int) -> void:
 		_set_message("Your wallet doesn't cover that buy-in.")
 		return
 
+	_buy_in_chips = chip_amount
+	_deed_offer_pending = false
+	_deed_wager_active = false
+	_deed_offered_this_sitting = false
 	var starting_stacks: Array[int] = [chip_amount, chip_amount]
 	_session = PokerSession.new(starting_stacks, 0, SMALL_BLIND, BIG_BLIND, _rng)
 	_bridge.session = _session
@@ -166,8 +184,10 @@ func player_action(action: int, target: int) -> void:
 	_continue_hand()
 
 func next_hand() -> void:
-	if _session == null or not _hand_settled:
+	if _session == null or not _hand_settled or _settlement_reveal_pending:
 		return
+	if _deed_offer_pending:
+		_decline_offer_quietly()
 	_bridge.hand_started()
 	if not _session.start_next_hand():
 		_end_session("The table is settled. Cash out or buy in again when ready.")
@@ -268,6 +288,18 @@ func _settle_hand() -> void:
 	_bridge.hand_settled()
 	var rival_mem := _rival_memory.get_memory(str(PLAYER_SEAT))
 	var was_kempt := rival_mem.kempt
+	var deed_line := ""
+	if _deed_wager_active:
+		# Before record_settlement, so losing the deed shows on him right away.
+		_deed_wager_active = false
+		match DeedWager.resolve(payouts, PLAYER_SEAT, RIVAL_SEAT, _campaign.ledger, _wallet,
+				rival_mem, _session.hand_number):
+			"player":
+				deed_line = DEED_WON
+			"rival":
+				deed_line = DEED_LOST % _format_amount(DeedWager.STAKE_SILVER)
+			_:
+				deed_line = DEED_SPLIT
 	_rival_memory.record_settlement(_session, payouts)
 	_hand_settled = true
 	if payouts.is_empty():
@@ -279,17 +311,55 @@ func _settle_hand() -> void:
 			descriptions.append("%s take%s %s chips" % [winner_name, "" if int(seat_id) == 0 else "s", _format_amount(int(payouts[seat_id]))])
 		_last_message = "; ".join(descriptions) + "."
 	_record_history(_last_message)
+	if not deed_line.is_empty():
+		_record_history(deed_line)
+		_last_message += " " + deed_line
 	if rival_mem.kempt != was_kempt:
 		var look_line := LOOK_UNKEMPT if was_kempt else LOOK_KEMPT
 		_record_history(look_line)
 		_last_message += " " + look_line
 	_last_message += " Rusty Spur: %s. Reputation: %s." % [
 		_town_state.state, _table_reputation.get_label()]
+	_maybe_offer_deed()
 	_settlement_reveal_pending = true
 	_render()
 	await _pause_hand(SHOWDOWN_REVEAL_SECONDS)
 	_settlement_reveal_pending = false
 	_render()
+
+## Between hands: a drifter who has lost half his chips stakes his claim.
+func _maybe_offer_deed() -> void:
+	var stacks := _session.stacks()
+	if stacks[PLAYER_SEAT] <= 0 or stacks[RIVAL_SEAT] <= 0:
+		return
+	if not DeedWager.should_offer(_campaign.ledger, _wallet, stacks[RIVAL_SEAT], _buy_in_chips,
+			_deed_offered_this_sitting, deed_offer_stack_share):
+		return
+	_deed_offer_pending = true
+	_deed_offered_this_sitting = true
+	_record_history(DEED_OFFER % _format_amount(DeedWager.STAKE_SILVER))
+
+func accept_deed_wager() -> void:
+	if not _deed_offer_pending or _settlement_reveal_pending:
+		return
+	if not DeedWager.accept(_wallet):
+		_set_message("You don't have %s silver to put against the deed." % _format_amount(DeedWager.STAKE_SILVER))
+		return
+	_deed_offer_pending = false
+	_deed_wager_active = true
+	_record_history("You put %s silver against the drifter's deed. The next hand decides it."
+		% _format_amount(DeedWager.STAKE_SILVER))
+	next_hand()
+
+func decline_deed_wager() -> void:
+	if not _deed_offer_pending:
+		return
+	_decline_offer_quietly()
+	_set_message("You wave off the deed. The drifter tucks it back in his coat.")
+
+func _decline_offer_quietly() -> void:
+	_deed_offer_pending = false
+	_record_history("You turned down the drifter's deed.")
 
 func _pause_hand(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
@@ -300,6 +370,8 @@ func leave_table() -> void:
 	if not _hand_settled:
 		_set_message("Finish this hand before leaving the table.")
 		return
+	if _deed_offer_pending:
+		_decline_offer_quietly()
 	_end_session("You left the table and cashed out.")
 
 func _end_session(message: String) -> void:
@@ -310,6 +382,8 @@ func _end_session(message: String) -> void:
 	_bridge = null
 	_ai = null
 	_hand_settled = false
+	_deed_offer_pending = false
+	_deed_wager_active = false
 	_render()
 
 func save_progress() -> void:
@@ -481,6 +555,14 @@ func _render() -> void:
 		rival_timing = _rival_timing,
 		hand_settled = _hand_settled,
 		economy = _economy_status(),
+		deed = {
+			offer_pending = _deed_offer_pending,
+			wager_active = _deed_wager_active,
+			stake_silver = DeedWager.STAKE_SILVER,
+			value_gold = Ledger.CLAIM_VALUE_GOLD,
+			income_silver = Ledger.CLAIM_INCOME_SILVER,
+			can_afford = _wallet.balance >= DeedWager.STAKE_SILVER,
+		},
 	}
 	var phase := ""
 	if _opening_reveal_pending:

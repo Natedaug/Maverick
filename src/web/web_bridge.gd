@@ -16,6 +16,7 @@ extends Node
 ##     {"type": "next_hand"} | {"type": "leave"} | {"type": "save"} | {"type": "load"}
 ##     {"type": "buy_gold" | "sell_gold" | "pay_dealer", "gold": n}
 ##     {"type": "borrow"} | {"type": "repay", "index": i} | {"type": "sleep"}
+##     {"type": "deed_accept"} | {"type": "deed_decline"}
 ##
 ## Commands call PokerTable's public commands, which re-validate everything.
 
@@ -76,6 +77,10 @@ func handle_command(command: Dictionary) -> bool:
 			_table.repay_marker(int(command.get("index", -1)))
 		"sleep":
 			_table.sleep()
+		"deed_accept":
+			_table.accept_deed_wager()
+		"deed_decline":
+			_table.decline_deed_wager()
 		_:
 			return false
 	return true

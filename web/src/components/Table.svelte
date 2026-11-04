@@ -65,6 +65,12 @@
         <Card {code} />
       {/each}
     </div>
+    {#if status.deed.wager_active}
+      <div class="deed-stake" role="status">
+        <span class="deed-icon" aria-hidden="true">📜</span>
+        The drifter's claim deed rides on this hand, against your {formatChips(status.deed.stake_silver)} silver.
+      </div>
+    {/if}
     {#if snap.pot > 0}
       <div class="pot" aria-live="polite">
         <ChipStack amount={snap.pot} />
@@ -80,7 +86,24 @@
   </div>
 
   <div class="controls">
-    {#if handOver}
+    {#if handOver && status.deed.offer_pending}
+      <section class="offer" aria-labelledby="offer-title">
+        <div class="offer-text">
+          <h2 id="offer-title"><span aria-hidden="true">📜</span> The drifter stakes his claim</h2>
+          <p>
+            His silver claim in Split River (worth about {formatChips(status.deed.value_gold)} gold, pays
+            {formatChips(status.deed.income_silver)} silver a day) against
+            <strong>{formatChips(status.deed.stake_silver)} of your silver</strong>. Whoever wins the next pot takes
+            both; a split returns them.
+          </p>
+        </div>
+        <div class="offer-buttons">
+          <button class="next" disabled={!status.deed.can_afford} onclick={() => game.send({ type: "deed_accept" })}
+            >Take the bet</button>
+          <button class="leave" onclick={() => game.send({ type: "deed_decline" })}>Turn him down</button>
+        </div>
+      </section>
+    {:else if handOver}
       <div class="between">
         <button class="next" onclick={() => game.send({ type: "next_hand" })}>Deal next hand</button>
         <button class="leave" onclick={() => game.send({ type: "leave" })}>Cash out &amp; leave</button>
@@ -236,6 +259,62 @@
     .controls {
       position: sticky;
       bottom: 0;
+    }
+  }
+
+  .deed-stake {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.3);
+    border: 1px solid var(--brass);
+    font-size: var(--size-support);
+    color: var(--parchment);
+  }
+
+  .offer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 20px;
+    padding: 12px 18px;
+    background: linear-gradient(180deg, #3e3221, var(--wood));
+    border: 1px solid var(--brass);
+    border-radius: 14px;
+  }
+
+  .offer h2 {
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-size: var(--size-status);
+    color: var(--parchment);
+  }
+
+  .offer p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  .offer p strong {
+    color: var(--paper);
+  }
+
+  .offer-buttons {
+    display: grid;
+    gap: 8px;
+    min-width: 200px;
+  }
+
+  .offer-buttons button {
+    min-height: 44px;
+  }
+
+  @media (max-width: 640px) {
+    .offer {
+      grid-template-columns: 1fr;
     }
   }
 </style>

@@ -33,6 +33,9 @@ const EVENT_DELTAS := {
 	"stone_cold_worked": 0.20,
 	"folded_to_aggression": -0.10,
 	"cooler_loss": -0.15,
+	# The drifter's claim deed (Milestone 4): losing it is a heavy blow.
+	"deed_lost": -0.6,
+	"deed_defended": 0.3,
 }
 
 var opponent_id: String = ""
