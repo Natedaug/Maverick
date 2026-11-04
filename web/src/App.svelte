@@ -1,6 +1,7 @@
 <script lang="ts">
   import GodotHost from "./components/GodotHost.svelte";
   import Town from "./components/Town.svelte";
+  import Arrival from "./components/Arrival.svelte";
   import Table from "./components/Table.svelte";
   import { game } from "./lib/bridge.svelte";
   import { formatChips } from "./lib/cards";
@@ -11,6 +12,8 @@
 
   let bootError = $state("");
   let openPanel = $state<"" | "history" | "settings">("");
+  let logTab = $state<"journal" | "hands">("journal");
+  let confirmNewGame = $state(false);
   const view = $derived(game.state);
 
   // Table sounds follow confirmed state changes from Godot.
@@ -22,7 +25,12 @@
     previous = next;
   });
 
-  const toggle = (panel: "history" | "settings") => (openPanel = openPanel === panel ? "" : panel);
+  const toggle = (panel: "history" | "settings") => {
+    openPanel = openPanel === panel ? "" : panel;
+    confirmNewGame = false;
+    // At the table the hand log is what you want; in town, the journal.
+    if (panel === "history" && view) logTab = isSeated(view) ? "hands" : "journal";
+  };
 </script>
 
 <svelte:window
@@ -58,7 +66,7 @@
       <div class="menu">
         <button onclick={() => game.send({ type: "save" })}>Save</button>
         <button onclick={() => game.send({ type: "load" })}>Load</button>
-        <button aria-expanded={openPanel === "history"} onclick={() => toggle("history")}>History</button>
+        <button aria-expanded={openPanel === "history"} onclick={() => toggle("history")}>Journal</button>
         <button
           class="icon"
           aria-label="Settings"
@@ -81,11 +89,40 @@
             <input type="checkbox" role="switch" bind:checked={settings.reducedMotion} />
           </label>
           <p class="hint">Sound never carries information you can't also see on the table.</p>
+          <div class="danger-zone">
+            {#if isSeated(view)}
+              <p class="hint">Leave the table to start a new game.</p>
+            {:else if !confirmNewGame}
+              <button class="restart" onclick={() => (confirmNewGame = true)}>Start a new game…</button>
+            {:else}
+              <p class="hint">Start the season over from day 1? Your saved game is replaced the next time you save or sleep.</p>
+              <div class="confirm">
+                <button
+                  class="restart"
+                  onclick={() => {
+                    game.send({ type: "new_game" });
+                    confirmNewGame = false;
+                    openPanel = "";
+                  }}>Start over</button>
+                <button onclick={() => (confirmNewGame = false)}>Keep playing</button>
+              </div>
+            {/if}
+          </div>
         </section>
       {/if}
       {#if openPanel === "history"}
-        <section class="popover history" aria-label="Hand history">
-          {#if view.history.length === 0}
+        <section class="popover history" aria-label="Journal and hand log">
+          <div class="tabs" role="tablist">
+            <button role="tab" aria-selected={logTab === "journal"} onclick={() => (logTab = "journal")}>Journal</button>
+            <button role="tab" aria-selected={logTab === "hands"} onclick={() => (logTab = "hands")}>Recent hands</button>
+          </div>
+          {#if logTab === "journal"}
+            <ol class="journal">
+              {#each view.status.journal.slice().reverse() as entry, i (i)}
+                <li><span class="day">Day {entry.day}</span>{entry.text}</li>
+              {/each}
+            </ol>
+          {:else if view.history.length === 0}
             <p>No hands played yet.</p>
           {:else}
             <ol>
@@ -104,6 +141,8 @@
       <p class="notice error" role="alert">{bootError}</p>
     {:else if !view}
       <p class="notice" role="status">Riding into Devil's Draw…</p>
+    {:else if view.status.intro?.length}
+      <Arrival paragraphs={view.status.intro} />
     {:else if isSeated(view)}
       <Table {view} />
     {:else}
@@ -253,6 +292,72 @@
     padding: 0 12px;
     font-size: 20px;
     line-height: 1;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .tabs button {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #5a4a33;
+    background: none;
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  .tabs button[aria-selected="true"] {
+    border-color: var(--parchment);
+    color: var(--parchment);
+    background: #3a3226;
+  }
+
+  .journal {
+    list-style: none;
+    padding-left: 0 !important;
+  }
+
+  .journal li {
+    color: var(--paper);
+  }
+
+  .day {
+    display: inline-block;
+    min-width: 4.2em;
+    margin-right: 6px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--brass);
+  }
+
+  .danger-zone {
+    display: grid;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #3d3324;
+  }
+
+  .confirm {
+    display: flex;
+    gap: 8px;
+  }
+
+  .danger-zone button {
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #6b5a3f;
+    background: var(--wood);
+    font-size: 15px;
+  }
+
+  .danger-zone .restart {
+    border-color: var(--danger);
   }
 
   .history ol {

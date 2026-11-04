@@ -9,7 +9,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 974 checks across 19 headless test scripts pass (Godot 4.7.2), including
+  All 993 checks across 19 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
@@ -65,8 +65,10 @@ Reorder it when playtests or owner decisions change the plan; record why.
    chose to delete the old Godot-drawn table (`PokerTableUI`, `PokerCardView`);
    `PokerTable` now exposes public commands that `WebBridge` calls directly.
 
-1. Owner playthrough: check visual hierarchy, sounds, wager controls, multi-hand
-   settlement, save/load, and leaving/cash-out. Record any concrete defects.
+1. **Owner playthrough of the whole slice** with
+   [`PLAYTEST_GUIDE.md`](PLAYTEST_GUIDE.md): one season from the arrival to
+   Crane. This covers items 0, 2 and 3 below and Milestones 1–4's exit tests.
+   Record concrete defects and tuning notes.
 2. Confirm the configurable wallet/chip exchange rate and `user://` save path
    behave as expected in the owner's normal Godot app context.
 3. Owner playtest of the rival: over several hands, does the drifter's
@@ -118,7 +120,7 @@ weights. See the [integration review](FRONTIER_INTEGRATION_REVIEW.md).
 **Exit when:** an event from one hand changes this rival's behavior/read in a
 later hand, and the player can learn and act on the tell fairly.
 
-### 4. First connected story slice — **working; steps 1–4 of 5 done**
+### 4. First connected story slice — **working; built, owner playtest pending**
 
 Connect travel/arrival, the hub saloon, the rival, poker stakes, one town-state
 change, one property/debt consequence, and a short Crown confrontation.
@@ -149,7 +151,11 @@ Build order, each step tested before the next:
    between hands. Results move the marker, wallet, deed, and town state, and
    play continues. `CrownDuel` holds the rules (`test_crown_duel.gd`); the
    bridge test plays both routes. Crane's portrait is placeholder art.
-5. Arrival in Devil's Draw tying it together; owner playtest.
+5. **Done 2026-11-04.** The arrival (a new season opens with the premise),
+   a saved journal of the moments that matter (the drifter's look, the deed,
+   debts, the town turning, Crane), Start a new game (Settings, confirmed),
+   and an autosave each morning and after Crane. Next: the owner plays a
+   full season with [`PLAYTEST_GUIDE.md`](PLAYTEST_GUIDE.md).
 
 **Exit when:** the player can explain how a poker decision changed a character
 relationship and the town's state, and can continue play after either a win or

@@ -41,6 +41,9 @@ npm run godot:export    # rebuild after any Godot/GDScript change
 npm run dev             # open http://localhost:5174
 ```
 
+To play the Devil's Draw slice and know what to look for, see
+[the playtest guide](docs/PLAYTEST_GUIDE.md).
+
 Requires Godot 4.7.2 web export templates (Editor → Manage Export Templates).
 The Godot-drawn table was removed on 2026-11-04; `godot --path .` now only
 shows a pointer to the web app. Godot's canvas is hidden in the page until

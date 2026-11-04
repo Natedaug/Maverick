@@ -15,6 +15,8 @@ extends Control
 ##   accept_deed_wager()  decline_deed_wager()
 ## The Crown confrontation (Augustus Crane, the Gilded Riverboat):
 ##   accept_crown(level)  decline_crown()  concede_duel()  dismiss_crown_result()
+## The season (Milestone 4 step 5):
+##   begin_season()  (after the arrival)  new_game()  (away from the table)
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -45,6 +47,18 @@ const CRANE_SUMMON_WORDS := "\"The Dealer sold me your paper. I could collect it
 const CRANE_WIN_WORDS := "Crane turns his cards face down with a thin smile. \"Well played. The Dealer will hear your account is lighter.\""
 const CRANE_LOSE_WORDS := "Crane gathers the chips without looking at them. \"Don't take it hard. Everyone in this valley pays me eventually.\""
 const CRANE_DECLINE := "Crane's steward bows. \"Mr. Crane will be disappointed.\" The riverboat casts off by noon."
+## The arrival, shown once at the start of a new game (Milestone 4 step 5).
+const ARRIVAL := [
+	"You ride into Devil's Draw at dusk with 1,000 silver in your saddlebag and a marker in your coat. It says you owe The Dealer 250 gold, due on day 14.",
+	"The Rusty Spur is the only lit window on the street. A drifter deals at the back table. He doesn't forget a face, and he doesn't hide it when he's rattled. Watch how he carries himself.",
+	"Win silver at the table. Trade it for gold at the assay office. The House will lend, at a price. Sleep at the boarding house to end the day. And mind the river: a man named Crane runs this valley from a riverboat.",
+]
+const ARRIVAL_NOTE := "You rode into Devil's Draw owing The Dealer 250 gold, due on day 14."
+const TOWN_NOTES := {
+	prosperous = "Devil's Draw turned prosperous. Gold got cheaper at the assay office.",
+	stressed = "Devil's Draw turned stressed. Gold got dearer at the assay office.",
+	neutral = "Devil's Draw settled back to ordinary.",
+}
 const CRANE_SUMMONS_LIFTED := "With The Dealer paid, Crane's men leave your door. The riverboat casts off."
 const PLAYER_SEAT := 0
 const RIVAL_SEAT := 1
@@ -124,17 +138,47 @@ func _show_browser_notice() -> void:
 	add_child(notice)
 
 func _initialize_world_data() -> void:
+	_fresh_world()
+	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign):
+		_last_message = "Your saved game is ready. Day %d in Devil's Draw." % _campaign.day
+	else:
+		_fresh_world()
+
+## A new season: fresh wallet, town, reputation, rival memory, and campaign.
+func _fresh_world() -> void:
 	_wallet = Wallet.new()
 	_wallet.balance = starting_wallet_balance
 	_town_state = TownState.new()
 	_town_state.town_id = TOWN_ID
 	_table_reputation = TableReputation.new()
 	_table_reputation.table_id = TABLE_ID
-	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign):
-		_last_message = "Your saved game is ready. Day %d in Devil's Draw." % _campaign.day
-	else:
-		_last_message = "You ride into Devil's Draw with 1,000 silver and a marker: " \
-			+ "you owe The Dealer 250 gold by day 14."
+	_rival_memory.clear()
+	_campaign = Campaign.new()
+	_campaign.note(ARRIVAL_NOTE)
+	_history.clear()
+	_crown_result = {}
+	_last_message = "You ride into Devil's Draw with %s silver and a marker: you owe The Dealer %d gold by day %d." \
+		% [_format_amount(starting_wallet_balance), Ledger.DEALER_START_GOLD, Ledger.DEALER_DUE_DAY]
+
+## Close the arrival and start playing.
+func begin_season() -> void:
+	if _campaign.intro_seen:
+		return
+	_campaign.intro_seen = true
+	_render()
+
+## Start over. Your saved game is replaced the next time you save or sleep.
+func new_game() -> void:
+	if not _in_town():
+		return
+	_fresh_world()
+	_render()
+
+## Save quietly in town (each morning, and after Crane). Returns success.
+func _autosave() -> bool:
+	if _session != null:
+		return false
+	return _save_system.save_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign)
 
 func buy_in(chip_amount: int) -> void:
 	if _session != null:
@@ -316,6 +360,7 @@ func _settle_hand() -> void:
 	if _duel:
 		await _settle_duel_hand(payouts)
 		return
+	var town_before := _town_state.state
 	_bridge.hand_settled()
 	var rival_mem := _rival_memory.get_memory(str(PLAYER_SEAT))
 	var was_kempt := rival_mem.kempt
@@ -344,11 +389,15 @@ func _settle_hand() -> void:
 	_record_history(_last_message)
 	if not deed_line.is_empty():
 		_record_history(deed_line)
+		_campaign.note(deed_line)
 		_last_message += " " + deed_line
 	if rival_mem.kempt != was_kempt:
 		var look_line := LOOK_UNKEMPT if was_kempt else LOOK_KEMPT
 		_record_history(look_line)
+		_campaign.note(look_line)
 		_last_message += " " + look_line
+	if _town_state.state != town_before:
+		_campaign.note(str(TOWN_NOTES.get(_town_state.state, "")))
 	_last_message += " Rusty Spur: %s. Reputation: %s." % [
 		_town_state.state, _table_reputation.get_label()]
 	_maybe_offer_deed()
@@ -490,9 +539,12 @@ func pay_dealer(gold: int) -> void:
 			if _campaign.crown_status == "summoned":
 				_campaign.crown_status = "none"
 				paid_line += " " + CRANE_SUMMONS_LIFTED
+			_campaign.note(paid_line)
 			_town_event(paid_line)
 		else:
-			_town_event("You send %d gold to The Dealer. %d gold still owed." % [gold, ledger.dealer_owed_gold])
+			var part_line := "You sent %d gold to The Dealer. %d gold still owed." % [gold, ledger.dealer_owed_gold]
+			_campaign.note(part_line)
+			_town_event(part_line)
 	else:
 		_set_message("You need the gold in hand, and no more than you owe.")
 
@@ -500,6 +552,7 @@ func borrow_marker() -> void:
 	if not _in_town():
 		return
 	if _campaign.ledger.borrow(_wallet, _campaign.day):
+		_campaign.note("You took a House marker for %d silver." % Ledger.MARKER_SILVER)
 		_town_event("The barkeep writes you a marker for %d silver." % Ledger.MARKER_SILVER)
 	elif _campaign.ledger.barred:
 		_set_message("The House won't lend to you until your called marker is paid.")
@@ -514,6 +567,7 @@ func repay_marker(index: int) -> void:
 		return
 	var cost := ledger.repay_cost(index, _campaign.day)
 	if ledger.repay(_wallet, index, _campaign.day):
+		_campaign.note("You paid off a House marker for %s silver." % _format_amount(cost))
 		_town_event("You pay off a marker for %s silver." % _format_amount(cost))
 	else:
 		_set_message("You need %s silver to pay off that marker." % _format_amount(cost))
@@ -530,16 +584,23 @@ func sleep() -> void:
 				lines.append("Your claim pays %d silver." % Ledger.CLAIM_INCOME_SILVER)
 			"deed_seized":
 				lines.append("The House called an old marker and took your claim deed.")
+				_campaign.note("The House called an old marker and took your claim deed.")
 			"barred":
 				lines.append("The House called an old marker. You're barred from the tables until it's paid.")
+				_campaign.note("The House called a marker you couldn't cover. You were barred from the tables.")
 			"dealer_overdue":
 				lines.append("The Dealer's marker is past due. Word travels fast downriver.")
+				_campaign.note("The Dealer's marker went past due.")
 	if _campaign.day == _campaign.ledger.dealer_due_day and _campaign.ledger.dealer_owed_gold > 0:
 		lines.append("The Dealer's marker is due today.")
 	var arrival := CrownDuel.check_arrival(_campaign, _wallet, _town_state)
 	if not arrival.is_empty():
 		_campaign.crown_status = arrival
 		lines.append(CRANE_INVITE_ARRIVAL if arrival == "invited" else CRANE_SUMMON_ARRIVAL)
+		_campaign.note("The Gilded Riverboat docked. Augustus Crane %s." % (
+			"invited you to a game" if arrival == "invited" else "bought your marker and summoned you"))
+	if _autosave():
+		lines.append("(Saved.)")
 	_town_event(" ".join(lines))
 
 # --- The Crown confrontation (Milestone 4 step 4) ---
@@ -574,6 +635,7 @@ func decline_crown() -> void:
 	if not _in_town() or _campaign.crown_status != "invited":
 		return
 	_campaign.crown_status = "declined"
+	_campaign.note("You sent Augustus Crane away.")
 	_town_event(CRANE_DECLINE)
 
 ## Concede between hands; counts as a loss.
@@ -614,13 +676,17 @@ func _finish_duel(won: bool) -> void:
 	var words := CRANE_WIN_WORDS if won else CRANE_LOSE_WORDS
 	_crown_result = {won = won, words = words, lines = lines}
 	_record_history(words)
+	_campaign.note("You %s Augustus Crane on the Gilded Riverboat (%s stakes)." % [
+		"beat" if won else "lost to", _duel_level])
 	for line in lines:
 		_record_history(line)
+		_campaign.note(line)
 	_session = null
 	_ai = null
 	_hand_settled = false
 	_duel = false
 	_last_message = ("You beat Augustus Crane. " if won else "Augustus Crane beat you. ") + lines[0]
+	_autosave()
 	_render()
 
 ## Plain-language stakes for the dialogue choice.
@@ -729,6 +795,8 @@ func _render() -> void:
 		hand_settled = _hand_settled,
 		economy = _economy_status(),
 		crown = _crown_status(),
+		intro = [] if _campaign.intro_seen else ARRIVAL.duplicate(),
+		journal = _campaign.journal.duplicate(true),
 		table = _table_status(),
 		deed = {
 			offer_pending = _deed_offer_pending,

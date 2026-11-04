@@ -160,3 +160,15 @@ func _test_campaign_saves_crown_status() -> void:
 	_check(legacy != null and legacy.crown_status == "none", "older saves start with no Crown business")
 	_check(Campaign.from_dict({day = 3, ledger = Ledger.new().to_dict(), crown_status = "bogus"}) == null,
 		"an unknown status is rejected")
+	var j := Campaign.new()
+	j.day = 4
+	j.note("The drifter lost his claim.")
+	j.intro_seen = true
+	var jb := Campaign.from_dict(JSON.parse_string(JSON.stringify(j.to_dict())))
+	_check(jb.intro_seen and jb.journal.size() == 1 and jb.journal[0].day == 4, "the journal and arrival flag survive a save")
+	for i in range(Campaign.JOURNAL_LIMIT + 5):
+		j.note("entry %d" % i)
+	_check(j.journal.size() == Campaign.JOURNAL_LIMIT and str(j.journal[-1].text) == "entry %d" % (Campaign.JOURNAL_LIMIT + 4),
+		"the journal keeps the newest entries")
+	_check(Campaign.new().intro_seen == false and legacy.intro_seen, "new seasons show the arrival; older saves skip it")
+	_check(Campaign.from_dict({day = 3, ledger = Ledger.new().to_dict(), journal = [5]}) == null, "a bad journal is rejected")

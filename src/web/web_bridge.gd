@@ -19,6 +19,7 @@ extends Node
 ##     {"type": "deed_accept"} | {"type": "deed_decline"}
 ##     {"type": "crown_accept", "level": "standard" | "double"} | {"type": "crown_decline"}
 ##     {"type": "concede"} | {"type": "crown_dismiss"}
+##     {"type": "begin"} | {"type": "new_game"}
 ##
 ## Commands call PokerTable's public commands, which re-validate everything.
 
@@ -94,6 +95,10 @@ func handle_command(command: Dictionary) -> bool:
 			_table.concede_duel()
 		"crown_dismiss":
 			_table.dismiss_crown_result()
+		"begin":
+			_table.begin_season()
+		"new_game":
+			_table.new_game()
 		_:
 			return false
 	return true

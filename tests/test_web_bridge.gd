@@ -46,6 +46,8 @@ func _on_sent(json: String) -> void:
 func _test_deed_flow() -> void:
 	var table: PokerTable = TABLE_SCENE.instantiate()
 	table.save_path = SAVE_PATH + ".deed"
+	if FileAccess.file_exists(table.save_path):
+		DirAccess.remove_absolute(table.save_path)
 	table.starting_wallet_balance = 5000
 	table.deed_offer_stack_share = 10.0
 	root.add_child(table)
@@ -84,9 +86,30 @@ func _test_deed_flow() -> void:
 	table.queue_free()
 	await process_frame
 
+## The arrival, the journal, and starting over (Milestone 4 step 5).
+func _test_season_commands() -> void:
+	var journal: Array = _last.status.get("journal", [])
+	var text := str(journal)
+	_check(text.contains("owing The Dealer 250 gold"), "the journal starts with the arrival")
+	_check(text.contains("You took a House marker") and text.contains("You paid off a House marker"),
+		"the journal records the House Line")
+	_check(text.contains("You sent 5 gold to The Dealer"), "the journal records Dealer payments")
+	_check(text.contains("barred from the tables") and text.contains("went past due"),
+		"the journal records the called marker and the overdue debt")
+	_check(not text.contains("You wake"), "the journal skips routine mornings")
+	_check(int(journal[0].get("day", 0)) == 1, "entries carry their day")
+	_check(_send({type = "new_game"}), "new_game accepted")
+	_check(int(_eco().day) == 1 and int(_eco().dealer_owed_gold) == 250 and int(_last.status.wallet_balance) == 5000,
+		"a new game starts the season over")
+	_check((_last.status.intro as Array).size() == 3, "a new game shows the arrival")
+	_check((_last.status.journal as Array).size() == 1, "a new game starts a new journal")
+	_check(_send({type = "begin"}) and (_last.status.intro as Array).is_empty(), "begin closes the arrival")
+
 func _new_table(silver: int, tag: String) -> PokerTable:
 	var table: PokerTable = TABLE_SCENE.instantiate()
 	table.save_path = SAVE_PATH + "." + tag
+	if FileAccess.file_exists(table.save_path):
+		DirAccess.remove_absolute(table.save_path)
 	table.starting_wallet_balance = silver
 	root.add_child(table)
 	await process_frame
@@ -143,6 +166,9 @@ func _test_crown_invited_flow() -> void:
 		_check(int(_last.status.wallet_balance) == 2100, "lost without a deed: he takes 40% (3,500 -> 2,100)")
 		_check(str(result.words).contains("pays me eventually"), "Crane's closing words")
 	_check(_last.get("snapshot", {}).is_empty() and str(_last.status.table.mode) == "cash", "back in Devil's Draw")
+	var journal_text := str(_last.status.journal)
+	_check(journal_text.contains("Augustus Crane on the Gilded Riverboat") and journal_text.contains("docked"),
+		"the journal records Crane's arrival and the match")
 	_check(_send({type = "crown_dismiss"}) and (_crown().result as Dictionary).is_empty(), "dismiss the result")
 	for i in range(15):
 		_send({type = "sleep"})
@@ -207,8 +233,10 @@ func _test_town_commands() -> void:
 		"barred: the House refuses a seat")
 	_check(_send({type = "repay", index = 0}), "repay accepted")
 	_check(not bool(_eco().barred) and (_eco().markers as Array).is_empty(), "paying the marker lifts the bar")
-	_check(_send({type = "save"}) and _send({type = "sleep"}) and _send({type = "load"}), "save, sleep, load")
-	_check(int(_eco().day) == 16, "load restores the day")
+	_check(_send({type = "save"}) and _send({type = "sleep"}), "save, then sleep")
+	_check(str(_last.message).contains("(Saved.)"), "each morning autosaves")
+	_check(_send({type = "load"}) and int(_eco().day) == 17, "load restores the morning autosave")
+	_test_season_commands()
 
 func _seats() -> Array:
 	return _last.get("snapshot", {}).get("seats", [])

@@ -104,6 +104,10 @@ export interface Status {
   economy: Economy;
   crown: Crown;
   table: TableInfo;
+  /** The arrival's paragraphs while a new season hasn't begun; empty after. */
+  intro: string[];
+  /** The story so far, oldest first. */
+  journal: { day: number; text: string }[];
   /** The drifter's claim deed, staked as a side bet on one hand. */
   deed: {
     offer_pending: boolean;
@@ -143,7 +147,9 @@ export type Command =
   | { type: "crown_accept"; level: "standard" | "double" }
   | { type: "crown_decline" }
   | { type: "concede" }
-  | { type: "crown_dismiss" };
+  | { type: "crown_dismiss" }
+  | { type: "begin" }
+  | { type: "new_game" };
 
 export function isSeated(state: TableState | null): state is TableState & { snapshot: Snapshot } {
   return !!state && Array.isArray((state.snapshot as Snapshot).seats) && (state.snapshot as Snapshot).seats.length >= 2;
