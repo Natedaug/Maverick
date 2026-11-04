@@ -38,15 +38,21 @@
 <div class="shell">
   <header>
     <div class="title">
-      <span class="town">Devil's Draw</span>
-      <span class="sep" aria-hidden="true">·</span>
-      <span class="venue">The Rusty Spur</span>
+      {#if view?.status.table?.mode !== "duel"}
+        <span class="town">Devil's Draw</span>
+        <span class="sep" aria-hidden="true">·</span>
+      {/if}
+      <span class="venue">{view?.status.table?.venue ?? "The Rusty Spur"}</span>
     </div>
     {#if view}
       <dl class="ledger">
         <div><dt>Silver</dt><dd>{formatChips(view.status.wallet_balance)}</dd></div>
         <div><dt>Gold</dt><dd>{formatChips(view.status.economy.gold)}</dd></div>
-        <div><dt>Day</dt><dd>{view.status.economy.day}<span class="of">{" / "}{view.status.economy.season_days}</span></dd></div>
+        <div><dt>Day</dt><dd>
+            {view.status.economy.day}{#if view.status.economy.day <= view.status.economy.season_days}<span class="of"
+                >{" / "}{view.status.economy.season_days}</span
+              >{/if}
+          </dd></div>
         <div><dt>Town</dt><dd>{view.status.town_state}</dd></div>
       </dl>
       <div class="menu">

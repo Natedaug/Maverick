@@ -3,6 +3,7 @@
   // your debts, the assay office, and the boarding house. Godot computes every
   // price and decides every rule; this screen only shows them and sends intents.
   import BuyIn from "./BuyIn.svelte";
+  import CranePortrait from "./CranePortrait.svelte";
   import { game } from "../lib/bridge.svelte";
   import { formatChips } from "../lib/cards";
   import type { TableState } from "../lib/protocol";
@@ -10,6 +11,9 @@
   let { view }: { view: TableState } = $props();
 
   const eco = $derived(view.status.economy);
+  const crown = $derived(view.status.crown);
+  const crownPending = $derived(crown.status === "invited" || crown.status === "summoned");
+  const crownResult = $derived(crown.result?.lines?.length ? crown.result : null);
   const silver = $derived(view.status.wallet_balance);
   const daysLeft = $derived(eco.dealer_due_day - eco.day);
   const paidShare = $derived(1 - eco.dealer_owed_gold / Math.max(1, eco.dealer_start_gold));
@@ -36,6 +40,58 @@
 </script>
 
 <div class="town">
+  {#if crownResult}
+    <section class="crown" class:won={crownResult.won} aria-labelledby="crown-title">
+      <CranePortrait caption={false} />
+      <div class="crown-body">
+        <p class="eyebrow">The Gilded Riverboat</p>
+        <h2 id="crown-title">{crownResult.won ? "You beat Augustus Crane" : "Augustus Crane beat you"}</h2>
+        <p class="words">{crownResult.words}</p>
+        <ul class="consequences">
+          {#each crownResult.lines ?? [] as line, i (i)}
+            <li>{line}</li>
+          {/each}
+        </ul>
+        <button class="primary" onclick={() => game.send({ type: "crown_dismiss" })}>Back to Devil's Draw</button>
+      </div>
+    </section>
+  {:else if crownPending && crown.terms}
+    <section class="crown" class:summoned={crown.status === "summoned"} aria-labelledby="crown-title">
+      <CranePortrait caption={false} />
+      <div class="crown-body">
+        <p class="eyebrow">{crown.status === "summoned" ? "Summoned" : "An invitation"}</p>
+        <h2 id="crown-title">Augustus Crane, the Gilded Riverboat</h2>
+        <p class="arrival">{crown.arrival}</p>
+        <p class="words">{crown.words}</p>
+        <div class="stakes">
+          <div class="stake">
+            <h3>Name your stakes</h3>
+            <p><strong>Win:</strong> {crown.terms.standard.win}</p>
+            <p><strong>Lose:</strong> {crown.terms.standard.lose}</p>
+            <button class="primary" onclick={() => game.send({ type: "crown_accept", level: "standard" })}
+              >Sit down with Crane</button>
+          </div>
+          <div class="stake double">
+            <h3>Double it</h3>
+            <p><strong>Win:</strong> {crown.terms.double.win}</p>
+            <p><strong>Lose:</strong> {crown.terms.double.lose}</p>
+            <button class="primary risky" onclick={() => game.send({ type: "crown_accept", level: "double" })}
+              >Double the stakes</button>
+          </div>
+        </div>
+        <p class="note">
+          Heads-up freezeout: {formatChips(crown.duel_stack ?? 0)} chips each, blinds rising, until one of you is
+          broke. No silver to sit. You can concede between hands.
+        </p>
+        {#if crown.can_decline}
+          <button class="decline" onclick={() => game.send({ type: "crown_decline" })}>Send him away</button>
+        {:else}
+          <p class="warn">A summons can't be refused. The Rusty Spur won't seat you until you've faced him, unless you pay The Dealer in full.</p>
+        {/if}
+      </div>
+    </section>
+  {/if}
+
   <BuyIn {view} />
 
   <div class="affairs">
@@ -123,7 +179,10 @@
 
     <section class="panel inn" aria-labelledby="inn-title">
       <h2 id="inn-title">Boarding house</h2>
-      <p class="big">Day {eco.day} <span class="unit">of {eco.season_days}</span></p>
+      <p class="big">
+        Day {eco.day}
+        <span class="unit">{eco.day <= eco.season_days ? `of ${eco.season_days}` : "· past the season's end"}</span>
+      </p>
       {#if eco.has_claim_deed}
         <p class="note">Your silver claim pays {formatChips(eco.claim_income_silver)} silver each morning.</p>
       {:else}
@@ -306,6 +365,131 @@
     clip: rect(0 0 0 0);
   }
 
+  .crown {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    padding: 18px 20px;
+    background: linear-gradient(180deg, #232b38, #161b24);
+    border: 1px solid #d9b45a;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgb(0 0 0 / 0.5);
+  }
+
+  .crown.summoned {
+    border-color: var(--danger);
+  }
+
+  .crown.won {
+    border-color: #6f9c7e;
+  }
+
+  .crown-body {
+    display: grid;
+    gap: 10px;
+  }
+
+  .eyebrow {
+    margin: 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #e8c56a;
+  }
+
+  .crown h2 {
+    font-size: var(--size-name);
+  }
+
+  .arrival {
+    margin: 0;
+    font-size: var(--size-support);
+    color: var(--muted);
+  }
+
+  .words {
+    margin: 0;
+    font-size: var(--size-status);
+    font-style: italic;
+    color: var(--paper);
+  }
+
+  .stakes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .stake {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid #3d4a5c;
+    background: rgb(0 0 0 / 0.25);
+  }
+
+  .stake.double {
+    border-color: #7c4a3a;
+  }
+
+  .stake h3 {
+    margin: 0;
+    font-size: var(--size-support);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--parchment);
+  }
+
+  .stake p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--muted);
+  }
+
+  .stake strong {
+    color: var(--paper);
+  }
+
+  .primary {
+    min-height: 46px;
+    margin-top: 4px;
+    background: var(--go);
+    border-color: #6f9c7e;
+    font-size: var(--size-support);
+  }
+
+  .primary.risky {
+    background: #6a3a2a;
+    border-color: var(--danger);
+  }
+
+  .decline {
+    justify-self: start;
+    background: none;
+    border: none;
+    padding: 0;
+    min-height: 0;
+    text-decoration: underline;
+    color: var(--parchment);
+  }
+
+  .consequences {
+    margin: 0;
+    padding-left: 1.2em;
+    display: grid;
+    gap: 4px;
+    font-size: var(--size-support);
+  }
+
+  .crown-body > .primary {
+    justify-self: start;
+    min-width: 240px;
+  }
+
   @media (max-width: 1100px) {
     .town {
       grid-template-columns: minmax(0, 640px);
@@ -313,7 +497,12 @@
   }
 
   @media (max-width: 560px) {
-    .affairs {
+    .affairs,
+    .stakes {
+      grid-template-columns: 1fr;
+    }
+
+    .crown {
       grid-template-columns: 1fr;
     }
   }

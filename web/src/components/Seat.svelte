@@ -4,6 +4,7 @@
   import Card from "./Card.svelte";
   import ChipStack from "./ChipStack.svelte";
   import Portrait from "./Portrait.svelte";
+  import CranePortrait from "./CranePortrait.svelte";
   import { formatChips } from "../lib/cards";
   import type { RivalTiming, SeatState } from "../lib/protocol";
 
@@ -14,6 +15,7 @@
     isPlayer = false,
     acting = false,
     kempt = undefined,
+    opponent = undefined,
     timing = "",
     showCommit = true,
   }: {
@@ -24,6 +26,8 @@
     acting?: boolean;
     /** Opponent only: the visible kempt/unkempt look. Omit for no portrait. */
     kempt?: boolean;
+    /** Opponent only: whose portrait to show. */
+    opponent?: "drifter" | "crane";
     timing?: RivalTiming;
     showCommit?: boolean;
   } = $props();
@@ -36,10 +40,14 @@
   const thinking = $derived(acting && !isPlayer && (timing === "tank" || timing === "snap" || timing === "normal"));
 </script>
 
-<section class="seat" class:player={isPlayer} class:has-look={kempt !== undefined} class:acting class:folded={seat.folded} aria-label={`${name}'s seat`}>
-  {#if kempt !== undefined}
+<section class="seat" class:player={isPlayer} class:has-look={opponent !== undefined} class:acting class:folded={seat.folded} aria-label={`${name}'s seat`}>
+  {#if opponent === "crane"}
     <div class="look">
-      <Portrait {kempt} />
+      <CranePortrait />
+    </div>
+  {:else if opponent === "drifter"}
+    <div class="look">
+      <Portrait kempt={kempt ?? true} />
     </div>
   {/if}
 

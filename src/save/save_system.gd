@@ -106,6 +106,7 @@ func load_game(wallet, town_state, reputation, path: String, rival_memory: Rival
 		var source := loaded_campaign if loaded_campaign != null else Campaign.new()
 		campaign.day = source.day
 		campaign.ledger = source.ledger
+		campaign.crown_status = source.crown_status
 	town_state.town_id = lines[2]
 	town_state.prosperity = loaded_prosperity
 	town_state.poker_volume = loaded_volume

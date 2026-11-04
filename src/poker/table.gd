@@ -13,6 +13,8 @@ extends Control
 ##   repay_marker(index)  sleep()
 ## The drifter's deed offer (between hands, when he has lost half his chips):
 ##   accept_deed_wager()  decline_deed_wager()
+## The Crown confrontation (Augustus Crane, the Gilded Riverboat):
+##   accept_crown(level)  decline_crown()  concede_duel()  dismiss_crown_result()
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -32,6 +34,18 @@ const DEED_OFFER := "The drifter lays a folded deed on the felt: \"My claim in S
 const DEED_WON := "You win the drifter's claim deed. He stares at it a long moment before he lets go."
 const DEED_LOST := "The drifter pockets your %s silver and tucks his deed away."
 const DEED_SPLIT := "A split pot. The deed and your silver go back where they came from."
+## The Crown confrontation (Milestone 4 step 4). Working name: Augustus Crane.
+const CRANE := "Crane"
+const CRANE_EQUITY_ITERATIONS := 160
+const RIVERBOAT := "The Gilded Riverboat"
+const CRANE_INVITE_ARRIVAL := "The Gilded Riverboat tied up at the Devil's Draw landing before dawn. A steward finds you at breakfast: Mr. Augustus Crane would like a word, and a game."
+const CRANE_INVITE_WORDS := "\"You've been taking silver out of my valley, friend. I don't mind. I'd just like the chance to take it back. One table, heads-up, until one of us is broke.\""
+const CRANE_SUMMON_ARRIVAL := "The Gilded Riverboat is waiting at the landing, and two of Crane's men are waiting at your door."
+const CRANE_SUMMON_WORDS := "\"The Dealer sold me your paper. I could collect it the dull way. Or you can sit down with me and try to win some of it back.\""
+const CRANE_WIN_WORDS := "Crane turns his cards face down with a thin smile. \"Well played. The Dealer will hear your account is lighter.\""
+const CRANE_LOSE_WORDS := "Crane gathers the chips without looking at them. \"Don't take it hard. Everyone in this valley pays me eventually.\""
+const CRANE_DECLINE := "Crane's steward bows. \"Mr. Crane will be disappointed.\" The riverboat casts off by noon."
+const CRANE_SUMMONS_LIFTED := "With The Dealer paid, Crane's men leave your door. The riverboat casts off."
 const PLAYER_SEAT := 0
 const RIVAL_SEAT := 1
 const AI_ACTION_REVEAL_SECONDS := 0.65
@@ -70,6 +84,12 @@ var _buy_in_chips := 0
 var _deed_offer_pending := false
 var _deed_wager_active := false
 var _deed_offered_this_sitting := false
+## True while the Crown match is being played (instead of the Rusty Spur game).
+var _duel := false
+var _duel_path := ""  # "invited" / "summoned"
+var _duel_level := ""  # "standard" / "double"
+## The last match's outcome for the result screen; empty once dismissed.
+var _crown_result: Dictionary = {}
 var _last_message := "Welcome to the Rusty Spur. Buy in when you're ready."
 var _history: Array[String] = []
 var _hand_settled := false
@@ -122,6 +142,9 @@ func buy_in(chip_amount: int) -> void:
 	if _campaign.ledger.barred:
 		_set_message("The House won't seat you until your called marker is paid.")
 		return
+	if _campaign.crown_status == "summoned":
+		_set_message("Crane's men are at the door. Nobody seats you until you've seen him.")
+		return
 	if chip_amount <= 0:
 		_set_message("Choose a positive buy-in.")
 		return
@@ -154,19 +177,35 @@ func buy_in(chip_amount: int) -> void:
 	_start_first_hand()
 
 func _start_first_hand() -> void:
-	_bridge.hand_started()
-	if not _session.start_hand():
-		_end_session("The table could not start a hand.")
+	await _deal(true)
+
+## Deal the first or next hand. In the Crown match, blinds rise on schedule.
+func _deal(first: bool) -> void:
+	if _duel:
+		var blinds := CrownDuel.blinds_for_hand(_session.hand_number + 1)
+		_session.small_blind = int(blinds[0])
+		_session.big_blind = int(blinds[1])
+	else:
+		_bridge.hand_started()
+	var dealt := _session.start_hand() if first else _session.start_next_hand()
+	if not dealt:
+		if _duel:
+			_finish_duel(_session.stacks()[PLAYER_SEAT] > 0)
+		else:
+			_end_session("The table is settled. Cash out or buy in again when ready.")
 		return
-	_rival_memory.begin_hand(_session, RIVAL_SEAT)
+	if not _duel:
+		_rival_memory.begin_hand(_session, RIVAL_SEAT)
 	_hand_settled = false
 	_opening_reveal_pending = true
-	_last_message = "Your cards are dealt. Take a moment to study them."
+	_last_message = ("Your cards are dealt." if first else "Your new cards are dealt.") \
+		+ " Take a moment to study them."
 	_record_history(_last_message)
 	_render()
 	await _pause_hand(OPENING_REVEAL_SECONDS)
 	_opening_reveal_pending = false
-	_last_message = "You're in. Blinds are 10 / 20."
+	var blinds_text := "Blinds are %d / %d." % [_session.small_blind, _session.big_blind]
+	_last_message = ("You're in. " if first else "Next hand. ") + blinds_text
 	_continue_hand()
 
 func player_action(action: int, target: int) -> void:
@@ -176,7 +215,8 @@ func player_action(action: int, target: int) -> void:
 	if not _session.apply_action(0, action as PokerBetting.Action, target):
 		_set_message("That action is no longer legal. Choose from the lit options.")
 		return
-	_rival_memory.observe_action(PLAYER_SEAT, action as PokerBetting.Action, facing_bet)
+	if not _duel:
+		_rival_memory.observe_action(PLAYER_SEAT, action as PokerBetting.Action, facing_bet)
 	_last_message = "You %s." % _describe_action(action, target)
 	_record_history(_last_message)
 	_render()
@@ -188,20 +228,7 @@ func next_hand() -> void:
 		return
 	if _deed_offer_pending:
 		_decline_offer_quietly()
-	_bridge.hand_started()
-	if not _session.start_next_hand():
-		_end_session("The table is settled. Cash out or buy in again when ready.")
-		return
-	_rival_memory.begin_hand(_session, RIVAL_SEAT)
-	_hand_settled = false
-	_opening_reveal_pending = true
-	_last_message = "Your new cards are dealt. Take a moment to study them."
-	_record_history(_last_message)
-	_render()
-	await _pause_hand(OPENING_REVEAL_SECONDS)
-	_opening_reveal_pending = false
-	_last_message = "Next hand. Blinds are 10 / 20."
-	_continue_hand()
+	await _deal(false)
 
 func _continue_hand() -> void:
 	if _continuation_running:
@@ -245,13 +272,13 @@ func _continue_hand() -> void:
 		var think_seconds := AI_THINK_SECONDS
 		match timing:
 			"tank":
-				_last_message = "The drifter goes into the tank..."
+				_last_message = "%s goes into the tank..." % _opponent()
 				think_seconds = AI_TANK_SECONDS
 			"snap":
-				_last_message = "The drifter acts without a pause."
+				_last_message = "%s acts without a pause." % _opponent()
 				think_seconds = AI_SNAP_SECONDS
 			_:
-				_last_message = "The drifter studies the table."
+				_last_message = "%s studies the table." % _opponent()
 		_render()
 		await _pause_hand(think_seconds)
 		if _session == null or _hand_settled:
@@ -260,8 +287,9 @@ func _continue_hand() -> void:
 		_rival_timing = ""
 		var rival_facing_bet := _call_amount() > 0
 		var decision := _ai.decide_session(_session)
-		_rival_memory.observe_action(RIVAL_SEAT, decision.action, rival_facing_bet)
-		_last_message = "The drifter %s." % _describe_action(decision.action, decision.amount, true)
+		if not _duel:
+			_rival_memory.observe_action(RIVAL_SEAT, decision.action, rival_facing_bet)
+		_last_message = "%s %s." % [_opponent(), _describe_action(decision.action, decision.amount, true)]
 		_record_history(_last_message)
 		_render()
 		await _pause_hand(AI_ACTION_REVEAL_SECONDS)
@@ -285,6 +313,9 @@ func _settle_hand() -> void:
 	if _session == null or _hand_settled:
 		return
 	var payouts := _session.settle()
+	if _duel:
+		await _settle_duel_hand(payouts)
+		return
 	_bridge.hand_settled()
 	var rival_mem := _rival_memory.get_memory(str(PLAYER_SEAT))
 	var was_kempt := rival_mem.kempt
@@ -367,6 +398,9 @@ func _pause_hand(seconds: float) -> void:
 func leave_table() -> void:
 	if _session == null or _settlement_reveal_pending:
 		return
+	if _duel:
+		_set_message("There's no walking away from Crane's table. Concede if you're done.")
+		return
 	if not _hand_settled:
 		_set_message("Finish this hand before leaving the table.")
 		return
@@ -384,10 +418,14 @@ func _end_session(message: String) -> void:
 	_hand_settled = false
 	_deed_offer_pending = false
 	_deed_wager_active = false
+	_duel = false
 	_render()
 
 func save_progress() -> void:
 	if _settlement_reveal_pending:
+		return
+	if _duel:
+		_set_message("Finish the match with Crane before saving.")
 		return
 	if _session != null and not _hand_settled:
 		_set_message("Save after this hand settles, so your chips are included.")
@@ -401,6 +439,9 @@ func save_progress() -> void:
 
 func load_progress() -> void:
 	if _settlement_reveal_pending:
+		return
+	if _duel:
+		_set_message("Finish the match with Crane before loading.")
 		return
 	if _session != null and not _hand_settled:
 		_set_message("Finish this hand before loading a save.")
@@ -445,7 +486,11 @@ func pay_dealer(gold: int) -> void:
 	var ledger := _campaign.ledger
 	if ledger.pay_dealer(_wallet, gold):
 		if ledger.dealer_owed_gold == 0:
-			_town_event("You send %d gold to The Dealer. The marker is paid in full." % gold)
+			var paid_line := "You send %d gold to The Dealer. The marker is paid in full." % gold
+			if _campaign.crown_status == "summoned":
+				_campaign.crown_status = "none"
+				paid_line += " " + CRANE_SUMMONS_LIFTED
+			_town_event(paid_line)
 		else:
 			_town_event("You send %d gold to The Dealer. %d gold still owed." % [gold, ledger.dealer_owed_gold])
 	else:
@@ -491,7 +536,135 @@ func sleep() -> void:
 				lines.append("The Dealer's marker is past due. Word travels fast downriver.")
 	if _campaign.day == _campaign.ledger.dealer_due_day and _campaign.ledger.dealer_owed_gold > 0:
 		lines.append("The Dealer's marker is due today.")
+	var arrival := CrownDuel.check_arrival(_campaign, _wallet, _town_state)
+	if not arrival.is_empty():
+		_campaign.crown_status = arrival
+		lines.append(CRANE_INVITE_ARRIVAL if arrival == "invited" else CRANE_SUMMON_ARRIVAL)
 	_town_event(" ".join(lines))
+
+# --- The Crown confrontation (Milestone 4 step 4) ---
+
+func _opponent() -> String:
+	return CRANE if _duel else "The drifter"
+
+func accept_crown(level: String) -> void:
+	if not _in_town() or not CrownDuel.is_pending(_campaign.crown_status) or not level in CrownDuel.LEVELS:
+		return
+	_duel = true
+	_duel_path = _campaign.crown_status
+	_duel_level = level
+	_crown_result = {}
+	_deed_offer_pending = false
+	_deed_wager_active = false
+	var stacks: Array[int] = [CrownDuel.DUEL_STACK, CrownDuel.DUEL_STACK]
+	var first_blinds := CrownDuel.blinds_for_hand(1)
+	_session = PokerSession.new(stacks, 0, int(first_blinds[0]), int(first_blinds[1]), _rng)
+	var strategy := Strategy.new(_rng)
+	strategy.aggression = 0.7
+	strategy.tightness = 0.55
+	strategy.bluff_frequency = 0.12
+	_ai = AIPlayer.new(RIVAL_SEAT, strategy)
+	_ai.equity_iterations = CRANE_EQUITY_ITERATIONS
+	_history.clear()
+	_record_history("You sit down across from Augustus Crane on the Gilded Riverboat. %s stakes."
+		% ("Double" if level == "double" else "Standard"))
+	_start_first_hand()
+
+func decline_crown() -> void:
+	if not _in_town() or _campaign.crown_status != "invited":
+		return
+	_campaign.crown_status = "declined"
+	_town_event(CRANE_DECLINE)
+
+## Concede between hands; counts as a loss.
+func concede_duel() -> void:
+	if not _duel or _session == null or not _hand_settled or _settlement_reveal_pending:
+		return
+	_record_history("You concede the match.")
+	_finish_duel(false)
+
+func dismiss_crown_result() -> void:
+	if _crown_result.is_empty():
+		return
+	_crown_result = {}
+	_render()
+
+func _settle_duel_hand(payouts: Dictionary) -> void:
+	_hand_settled = true
+	var descriptions: Array[String] = []
+	for seat_id in payouts:
+		var winner := "You take" if int(seat_id) == PLAYER_SEAT else "Crane takes"
+		descriptions.append("%s %s chips" % [winner, _format_amount(int(payouts[seat_id]))])
+	_last_message = "; ".join(descriptions) + "." if not descriptions.is_empty() else "The pot was settled."
+	_record_history(_last_message)
+	_settlement_reveal_pending = true
+	_render()
+	await _pause_hand(SHOWDOWN_REVEAL_SECONDS)
+	_settlement_reveal_pending = false
+	if _session == null:
+		return
+	var stacks := _session.stacks()
+	if stacks[PLAYER_SEAT] <= 0 or stacks[RIVAL_SEAT] <= 0:
+		_finish_duel(stacks[PLAYER_SEAT] > 0)
+	else:
+		_render()
+
+func _finish_duel(won: bool) -> void:
+	var lines := CrownDuel.apply_result(won, _duel_path, _duel_level, _campaign, _wallet, _town_state)
+	var words := CRANE_WIN_WORDS if won else CRANE_LOSE_WORDS
+	_crown_result = {won = won, words = words, lines = lines}
+	_record_history(words)
+	for line in lines:
+		_record_history(line)
+	_session = null
+	_ai = null
+	_hand_settled = false
+	_duel = false
+	_last_message = ("You beat Augustus Crane. " if won else "Augustus Crane beat you. ") + lines[0]
+	_render()
+
+## Plain-language stakes for the dialogue choice.
+func _crown_terms(path: String, level: String) -> Dictionary:
+	var t := CrownDuel.terms(path, level, _campaign.ledger.has_claim_deed)
+	var lose: Array[String] = []
+	if bool(t.lose_deed):
+		lose.append("your claim deed")
+	if float(t.lose_share) > 0.0:
+		lose.append("%d%% of your silver and gold" % int(round(float(t.lose_share) * 100.0)))
+	if int(t.penalty_gold) > 0:
+		lose.append("%d more gold on your marker" % int(t.penalty_gold))
+	return {
+		win = "Crane squares %d gold of your debt with The Dealer, and the town prospers." % int(t.win_gold_off),
+		lose = "He takes %s, and the town is stressed." % " and ".join(lose),
+	}
+
+func _crown_status() -> Dictionary:
+	var status := _campaign.crown_status
+	var out := {status = status, result = _crown_result.duplicate(true)}
+	if CrownDuel.is_pending(status):
+		out["arrival"] = CRANE_INVITE_ARRIVAL if status == "invited" else CRANE_SUMMON_ARRIVAL
+		out["words"] = CRANE_INVITE_WORDS if status == "invited" else CRANE_SUMMON_WORDS
+		out["can_decline"] = status == "invited"
+		out["terms"] = {standard = _crown_terms(status, "standard"), double = _crown_terms(status, "double")}
+		out["duel_stack"] = CrownDuel.DUEL_STACK
+	return out
+
+func _table_status() -> Dictionary:
+	var out := {
+		mode = "duel" if _duel else "cash",
+		venue = RIVERBOAT if _duel else "The Rusty Spur",
+		opponent = {id = "crane" if _duel else "drifter", name = "Augustus Crane" if _duel else "The Drifter"},
+		small_blind = SMALL_BLIND,
+		big_blind = BIG_BLIND,
+	}
+	if _session != null:
+		out.small_blind = _session.small_blind
+		out.big_blind = _session.big_blind
+	if _duel and _session != null:
+		var hand := maxi(_session.hand_number, 1)
+		out["blind_level"] = int(CrownDuel.blinds_for_hand(hand)[2]) + 1
+		out["hands_to_next_level"] = CrownDuel.hands_to_next_level(hand)
+	return out
 
 func _town_event(message: String) -> void:
 	_record_history(message)
@@ -555,6 +728,8 @@ func _render() -> void:
 		rival_timing = _rival_timing,
 		hand_settled = _hand_settled,
 		economy = _economy_status(),
+		crown = _crown_status(),
+		table = _table_status(),
 		deed = {
 			offer_pending = _deed_offer_pending,
 			wager_active = _deed_wager_active,
@@ -649,5 +824,12 @@ func _street_name_for_board_size(card_count: int) -> String:
 			return "river"
 	return "next card"
 
+## Thousands separators, matching the web app ("1,838").
 func _format_amount(value: int) -> String:
-	return str(value)
+	var digits := str(absi(value))
+	var out := ""
+	for i in range(digits.length()):
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += ","
+		out += digits[i]
+	return ("-" if value < 0 else "") + out

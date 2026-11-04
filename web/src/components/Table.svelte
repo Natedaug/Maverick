@@ -28,13 +28,17 @@
   const handOver = $derived(phase === "hand_over");
   const boardSlots = $derived(Array.from({ length: 5 }, (_, i) => snap.board[i] ?? ""));
 
+  const info = $derived(status.table);
+  const duel = $derived(info.mode === "duel");
+  const opponentName = $derived(info.opponent.name);
+
   // Heads-up: the button posts the small blind.
   const role = (seat: number) => (seat === snap.button ? "Dealer · small blind" : "Big blind");
 
   const waiting = $derived.by(() => {
     if (phase === "reveal_cards") return "Look over your cards…";
     if (phase === "settling") return "Settling the pot…";
-    if (actor === RIVAL) return "The drifter is deciding.";
+    if (actor === RIVAL) return `${duel ? "Crane" : "The drifter"} is deciding.`;
     return "Waiting for the dealer…";
   });
 </script>
@@ -43,9 +47,10 @@
   <div class="opponent">
     <Seat
       seat={snap.seats[RIVAL]}
-      name="The Drifter"
+      name={opponentName}
       role={role(RIVAL)}
       acting={actor === RIVAL}
+      opponent={info.opponent.id}
       kempt={status.rival_kempt}
       timing={status.rival_timing}
       showCommit={live}
@@ -58,8 +63,18 @@
       <span class="dot">·</span>
       <span>{STAGE_LABEL[snap.stage] ?? snap.stage}</span>
       <span class="dot">·</span>
-      <span>Blinds 10 / 20</span>
+      <span>Blinds {formatChips(info.small_blind)} / {formatChips(info.big_blind)}</span>
     </div>
+    {#if duel}
+      <div class="freezeout" role="note">
+        Heads-up freezeout · Level {info.blind_level}
+        {#if info.hands_to_next_level}
+          · blinds rise in {info.hands_to_next_level} hand{info.hands_to_next_level === 1 ? "" : "s"}
+        {:else}
+          · top blinds
+        {/if}
+      </div>
+    {/if}
     <div class="board" aria-label="Community cards">
       {#each boardSlots as code, i (i)}
         <Card {code} />
@@ -103,6 +118,11 @@
           <button class="leave" onclick={() => game.send({ type: "deed_decline" })}>Turn him down</button>
         </div>
       </section>
+    {:else if handOver && duel}
+      <div class="between">
+        <button class="next" onclick={() => game.send({ type: "next_hand" })}>Deal next hand</button>
+        <button class="leave" onclick={() => game.send({ type: "concede" })}>Concede the match</button>
+      </div>
     {:else if handOver}
       <div class="between">
         <button class="next" onclick={() => game.send({ type: "next_hand" })}>Deal next hand</button>
@@ -316,5 +336,15 @@
     .offer {
       grid-template-columns: 1fr;
     }
+  }
+
+  .freezeout {
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: 1px solid rgb(217 180 90 / 0.6);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    color: #e8c56a;
+    background: rgb(0 0 0 / 0.25);
   }
 </style>

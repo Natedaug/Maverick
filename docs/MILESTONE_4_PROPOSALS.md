@@ -124,3 +124,54 @@ for after the slice.
 
 Every number above is a starting point for tuning, stored as data rather than
 hard-coded.
+
+## Step 4 design — the Gilded Riverboat (implementation spec, 2026-11-04)
+
+Built from the approved §5. Choices marked **(default)** were proposed by the
+implementer and approved by the owner on 2026-11-04 ("good choices"); every
+number lives in `CrownDuel` as data.
+
+**Who:** Augustus Crane (working name), owner of the Gilded Riverboat. He
+holds paper on the Mayor and answers to The Dealer. He plays differently from
+the drifter: more aggressive, bigger bets, slightly more bluffs, and he
+calculates more carefully (more equity samples). He has no tell in the slice
+**(default)**: the drifter is the character you learn to read; Crane is the
+test of what you learned.
+
+**When the riverboat docks** (checked each morning, after you sleep; once per
+season):
+- **Invited:** your net worth reaches **3,000 silver**, counting gold at
+  today's rate **(default: net worth, not just silver)**. Crane invites you. You
+  may accept or decline; declining sends him away for now.
+- **Summoned:** The Dealer's marker is overdue (the morning of day 15) and
+  unpaid. Crane has bought your paper. You can't decline, and the Rusty Spur
+  won't seat you until you face him. Paying The Dealer in full lifts the
+  summons. A summons replaces an open invitation, and comes even if you
+  declined him earlier.
+
+**The terms (the dialogue choice):** Crane names the stakes and you answer
+with one of:
+- **"Name your stakes"** (standard), or **"Double it"** (twice the reward and
+  twice the risk), or, if invited, **decline**.
+
+| | Standard | Double |
+|---|---|---|
+| **Win (invited)** | Crane squares **100 gold** of your marker | **200 gold** |
+| **Win (summoned, worse terms)** | **75 gold** | **150 gold** |
+| **Lose** | He takes your claim deed; without one, **40%** of your silver and gold | The deed **and** 40%; without the deed, **80%** |
+| **Lose (summoned, extra)** | **+50 gold** added to your marker | **+100 gold** |
+
+If his payment exceeds what you still owe, he pays the rest to you in gold.
+**Town:** winning loosens his grip on the Mayor (the town turns
+**prosperous**); losing tightens it (the town turns **stressed**, and gold gets
+dearer at the assay office).
+
+**The match:** heads-up freezeout on the riverboat. Both start with **1,500
+chips** **(default)**; these chips aren't bought with silver, the stakes above
+are what's at risk. Blinds rise every **4 hands**: 25/50, 50/100, 100/200,
+200/400, 400/800. The match ends when someone is broke. You can **concede** at
+any time between hands, which counts as a loss. You can't save or leave mid-match.
+
+**After:** Crane delivers a closing line, the result is applied, and you're
+back in Devil's Draw. Play continues after a win or a loss. One confrontation
+per season.

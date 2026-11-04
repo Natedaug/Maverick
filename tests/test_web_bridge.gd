@@ -84,6 +84,96 @@ func _test_deed_flow() -> void:
 	table.queue_free()
 	await process_frame
 
+func _new_table(silver: int, tag: String) -> PokerTable:
+	var table: PokerTable = TABLE_SCENE.instantiate()
+	table.save_path = SAVE_PATH + "." + tag
+	table.starting_wallet_balance = silver
+	root.add_child(table)
+	await process_frame
+	_bridge = WebBridge.new()
+	table.add_child(_bridge)
+	_bridge.attach(table)
+	_bridge.state_sent.connect(_on_sent)
+	return table
+
+func _crown() -> Dictionary:
+	return _last.get("status", {}).get("crown", {})
+
+## Play one Crown hand by folding when prompted, then wait for it to settle.
+func _play_out_hand() -> bool:
+	var done := func():
+		return _last.get("phase", "") == "hand_over" or _player_can_act() or _last.get("snapshot", {}).is_empty()
+	while await _wait_for(done) and _player_can_act():
+		_send({type = "action", action = PokerBetting.Action.FOLD, amount = 0})
+	return _last.get("phase", "") == "hand_over" or _last.get("snapshot", {}).is_empty()
+
+func _test_crown_invited_flow() -> void:
+	var table := await _new_table(3500, "crown")
+	_check(str(_crown().get("status", "")) == "none", "crown: nothing before the riverboat arrives")
+	_send({type = "sleep"})
+	_check(str(_crown().status) == "invited", "3,500 silver: Crane invites you")
+	_check(str(_last.message).contains("Gilded Riverboat"), "the arrival is announced")
+	_check(bool(_crown().can_decline) and str(_crown().words).begins_with("\""), "an invitation can be declined; Crane speaks")
+	_check(str(_crown().terms.standard.lose).contains("40%"), "no deed: standard loss is 40%")
+	_check(not _send({type = "crown_accept", level = "triple"}), "unknown stake level rejected")
+	_check(_send({type = "crown_accept", level = "standard"}), "crown_accept accepted")
+	var t: Dictionary = _last.status.table
+	_check(str(t.mode) == "duel" and str(t.opponent.id) == "crane" and str(t.venue) == "The Gilded Riverboat",
+		"the match is on the riverboat against Crane")
+	_check(int(t.small_blind) == 25 and int(t.big_blind) == 50 and int(t.blind_level) == 1, "level 1 blinds: 25/50")
+	var seats: Array = _last.snapshot.seats
+	_check(int(seats[0].stack) + int(seats[0].street_commitment) == 1500 \
+		and int(seats[1].stack) + int(seats[1].street_commitment) == 1500, "both start with 1,500 chips")
+	_check(int(_last.status.wallet_balance) == 3500, "the match doesn't cost silver to sit")
+	_check(await _play_out_hand(), "a Crane hand settles")
+	_send({type = "leave"})
+	_check(str(_last.status.table.mode) == "duel", "you can't walk away mid-match")
+	_send({type = "save"})
+	_check(str(_last.message).contains("Finish the match"), "no saving mid-match")
+	if _last.get("snapshot", {}).is_empty():
+		_check(true, "the match ended on the first hand")
+	else:
+		_check(_send({type = "concede"}), "concede accepted")
+	var result: Dictionary = _crown().get("result", {})
+	_check(not result.is_empty() and (result.get("lines", []) as Array).size() >= 2, "the result screen has Crane's verdict")
+	if bool(result.get("won", false)):
+		_check(str(_crown().status) == "won" and str(_last.status.town_state) == "prosperous", "won: the town prospers")
+	else:
+		_check(str(_crown().status) == "lost" and str(_last.status.town_state) == "stressed", "lost: the town is stressed")
+		_check(int(_last.status.wallet_balance) == 2100, "lost without a deed: he takes 40% (3,500 -> 2,100)")
+		_check(str(result.words).contains("pays me eventually"), "Crane's closing words")
+	_check(_last.get("snapshot", {}).is_empty() and str(_last.status.table.mode) == "cash", "back in Devil's Draw")
+	_check(_send({type = "crown_dismiss"}) and (_crown().result as Dictionary).is_empty(), "dismiss the result")
+	for i in range(15):
+		_send({type = "sleep"})
+	_check(str(_crown().status) in ["won", "lost"], "one confrontation per season: no summons afterwards")
+	_send({type = "buy_in", chips = 100})
+	_check(not _last.get("snapshot", {}).is_empty() and str(_last.status.table.opponent.id) == "drifter",
+		"play continues at the Rusty Spur")
+	table.queue_free()
+	await process_frame
+
+func _test_crown_summoned_flow() -> void:
+	var table := await _new_table(1000, "summons")
+	for i in range(14):
+		_send({type = "sleep"})
+	_check(str(_crown().status) == "summoned" and not bool(_crown().can_decline), "day 15, marker unpaid: summoned")
+	_check(not _send({type = "crown_decline"}) or str(_crown().status) == "summoned", "a summons can't be declined")
+	_send({type = "buy_in", chips = 100})
+	_check(_last.get("snapshot", {}).is_empty() and str(_last.message).contains("Crane's men"),
+		"the Rusty Spur won't seat you")
+	_check(str(_crown().terms.double.lose).contains("80%") and str(_crown().terms.double.lose).contains("100 more gold"),
+		"summoned double: 80% and 100 more gold on the marker")
+	_send({type = "crown_accept", level = "double"})
+	_check(await _play_out_hand(), "a summoned hand settles")
+	if not _last.get("snapshot", {}).is_empty():
+		_send({type = "concede"})
+	if not bool(_crown().result.get("won", false)):
+		_check(int(_eco().dealer_owed_gold) == 350 and int(_last.status.wallet_balance) <= 200,
+			"lost a doubled summons: 80% taken, marker now 350 gold")
+	table.queue_free()
+	await process_frame
+
 func _eco() -> Dictionary:
 	return _last.get("status", {}).get("economy", {})
 
@@ -189,6 +279,8 @@ func _run() -> void:
 	table.queue_free()
 	await process_frame
 	await _test_deed_flow()
+	await _test_crown_invited_flow()
+	await _test_crown_summoned_flow()
 
 	print("PASSES: %d" % _passes)
 	print("FAILURES: %d" % _failures)

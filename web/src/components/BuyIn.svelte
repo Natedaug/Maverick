@@ -34,7 +34,7 @@
       <span class="unit">chips</span>
     </div>
     <p class="cost">Costs {formatChips(cost)} of your {formatChips(status.wallet_balance)} silver.</p>
-    <button type="submit" disabled={!canBuy || status.economy.barred}>Take a seat</button>
+    <button type="submit" disabled={!canBuy || status.economy.barred || status.crown.status === "summoned"}>Take a seat</button>
     <p class="cost">Your name here: <strong class="rep">{status.reputation}</strong></p>
   </form>
 

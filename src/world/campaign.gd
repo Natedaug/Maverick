@@ -6,6 +6,10 @@ const SEASON_DAYS := 14
 
 var day: int = 1
 var ledger := Ledger.new()
+## The Crown confrontation's progress; see CrownDuel for the transitions.
+var crown_status: String = "none"
+
+const CROWN_STATUSES := ["none", "invited", "summoned", "won", "lost", "declined"]
 
 ## Sleep through the night. Returns the ledger's overnight event ids.
 func sleep(wallet: Wallet) -> Array[String]:
@@ -13,7 +17,7 @@ func sleep(wallet: Wallet) -> Array[String]:
 	return ledger.overnight(wallet, day)
 
 func to_dict() -> Dictionary:
-	return {day = day, ledger = ledger.to_dict()}
+	return {day = day, ledger = ledger.to_dict(), crown_status = crown_status}
 
 ## Null when `data` is malformed.
 static func from_dict(data: Dictionary) -> Campaign:
@@ -25,7 +29,11 @@ static func from_dict(data: Dictionary) -> Campaign:
 	var ledger := Ledger.from_dict(raw_ledger)
 	if ledger == null:
 		return null
+	var crown := str(data.get("crown_status", "none"))
+	if not crown in CROWN_STATUSES:
+		return null
 	var campaign := Campaign.new()
 	campaign.day = int(raw_day)
 	campaign.ledger = ledger
+	campaign.crown_status = crown
 	return campaign

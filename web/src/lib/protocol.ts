@@ -60,6 +60,33 @@ export interface Economy {
   claim_income_silver: number;
 }
 
+export interface CrownTerms {
+  win: string;
+  lose: string;
+}
+
+/** Augustus Crane's confrontation (Milestone 4 step 4). Text is authored in Godot. */
+export interface Crown {
+  status: "none" | "invited" | "summoned" | "won" | "lost" | "declined";
+  /** Present while a match result is waiting to be read. */
+  result: { won?: boolean; words?: string; lines?: string[] };
+  arrival?: string;
+  words?: string;
+  can_decline?: boolean;
+  terms?: { standard: CrownTerms; double: CrownTerms };
+  duel_stack?: number;
+}
+
+export interface TableInfo {
+  mode: "cash" | "duel";
+  venue: string;
+  opponent: { id: "drifter" | "crane"; name: string };
+  small_blind: number;
+  big_blind: number;
+  blind_level?: number;
+  hands_to_next_level?: number;
+}
+
 export interface Status {
   /** Silver. */
   wallet_balance: number;
@@ -75,6 +102,8 @@ export interface Status {
   rival_timing: RivalTiming;
   hand_settled: boolean;
   economy: Economy;
+  crown: Crown;
+  table: TableInfo;
   /** The drifter's claim deed, staked as a side bet on one hand. */
   deed: {
     offer_pending: boolean;
@@ -110,7 +139,11 @@ export type Command =
   | { type: "repay"; index: number }
   | { type: "sleep" }
   | { type: "deed_accept" }
-  | { type: "deed_decline" };
+  | { type: "deed_decline" }
+  | { type: "crown_accept"; level: "standard" | "double" }
+  | { type: "crown_decline" }
+  | { type: "concede" }
+  | { type: "crown_dismiss" };
 
 export function isSeated(state: TableState | null): state is TableState & { snapshot: Snapshot } {
   return !!state && Array.isArray((state.snapshot as Snapshot).seats) && (state.snapshot as Snapshot).seats.length >= 2;

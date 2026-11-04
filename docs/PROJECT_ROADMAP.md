@@ -9,7 +9,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 860 checks across 18 headless test scripts pass (Godot 4.7.2), including
+  All 974 checks across 19 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
@@ -118,7 +118,7 @@ weights. See the [integration review](FRONTIER_INTEGRATION_REVIEW.md).
 **Exit when:** an event from one hand changes this rival's behavior/read in a
 later hand, and the player can learn and act on the tell fairly.
 
-### 4. First connected story slice — **working; steps 1–3 of 5 done**
+### 4. First connected story slice — **working; steps 1–4 of 5 done**
 
 Connect travel/arrival, the hub saloon, the rival, poker stakes, one town-state
 change, one property/debt consequence, and a short Crown confrontation.
@@ -140,7 +140,15 @@ Build order, each step tested before the next:
    escrow, outcomes), deed memory events, an offer panel in place of "Deal
    next hand", and a felt banner while it rides. `test_deed_wager.gd` plus
    the bridge test's deed flow.
-4. The Gilded Riverboat confrontation (Crown) and the day-14 deadline.
+4. **Done 2026-11-04.** The Gilded Riverboat confrontation, built to the
+   "Step 4 design" spec in the proposals doc: Crane invites you at 3,000
+   silver net worth or summons you when The Dealer's marker is overdue
+   (summons blocks the Rusty Spur until faced or the marker is paid). You
+   choose standard or double stakes (or decline an invitation). Heads-up
+   freezeout from 1,500 chips with blinds rising every 4 hands; concede
+   between hands. Results move the marker, wallet, deed, and town state, and
+   play continues. `CrownDuel` holds the rules (`test_crown_duel.gd`); the
+   bridge test plays both routes. Crane's portrait is placeholder art.
 5. Arrival in Devil's Draw tying it together; owner playtest.
 
 **Exit when:** the player can explain how a poker decision changed a character

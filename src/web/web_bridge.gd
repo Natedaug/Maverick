@@ -17,6 +17,8 @@ extends Node
 ##     {"type": "buy_gold" | "sell_gold" | "pay_dealer", "gold": n}
 ##     {"type": "borrow"} | {"type": "repay", "index": i} | {"type": "sleep"}
 ##     {"type": "deed_accept"} | {"type": "deed_decline"}
+##     {"type": "crown_accept", "level": "standard" | "double"} | {"type": "crown_decline"}
+##     {"type": "concede"} | {"type": "crown_dismiss"}
 ##
 ## Commands call PokerTable's public commands, which re-validate everything.
 
@@ -81,6 +83,17 @@ func handle_command(command: Dictionary) -> bool:
 			_table.accept_deed_wager()
 		"deed_decline":
 			_table.decline_deed_wager()
+		"crown_accept":
+			var level := str(command.get("level", ""))
+			if not level in CrownDuel.LEVELS:
+				return false
+			_table.accept_crown(level)
+		"crown_decline":
+			_table.decline_crown()
+		"concede":
+			_table.concede_duel()
+		"crown_dismiss":
+			_table.dismiss_crown_result()
 		_:
 			return false
 	return true
