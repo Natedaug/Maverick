@@ -33,8 +33,9 @@
       <input id="chips" type="number" min="1" max={affordable} step="50" bind:value={chips} />
       <span class="unit">chips</span>
     </div>
-    <p class="cost">Costs {formatChips(cost)} from your wallet of {formatChips(status.wallet_balance)}.</p>
-    <button type="submit" disabled={!canBuy}>Take a seat</button>
+    <p class="cost">Costs {formatChips(cost)} of your {formatChips(status.wallet_balance)} silver.</p>
+    <button type="submit" disabled={!canBuy || status.economy.barred}>Take a seat</button>
+    <p class="cost">Your name here: <strong class="rep">{status.reputation}</strong></p>
   </form>
 
   {#if view.message}
@@ -47,8 +48,8 @@
 
 <style>
   .buyin {
-    width: min(520px, 100%);
-    margin: clamp(24px, 8vh, 96px) auto 0;
+    width: 100%;
+    margin: 0;
     padding: 32px clamp(20px, 4vw, 40px);
     text-align: center;
     background: linear-gradient(180deg, var(--wood-light), var(--wood));
@@ -121,6 +122,11 @@
 
   .cost {
     margin: 0;
+  }
+
+  .rep {
+    color: var(--paper);
+    text-transform: capitalize;
   }
 
   button[type="submit"] {

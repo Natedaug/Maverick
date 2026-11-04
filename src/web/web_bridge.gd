@@ -14,6 +14,8 @@ extends Node
 ##     {"type": "buy_in", "chips": 1000}
 ##     {"type": "action", "action": 0-4, "amount": 0}   PokerBetting.Action
 ##     {"type": "next_hand"} | {"type": "leave"} | {"type": "save"} | {"type": "load"}
+##     {"type": "buy_gold" | "sell_gold" | "pay_dealer", "gold": n}
+##     {"type": "borrow"} | {"type": "repay", "index": i} | {"type": "sleep"}
 ##
 ## Commands call PokerTable's public commands, which re-validate everything.
 
@@ -62,6 +64,18 @@ func handle_command(command: Dictionary) -> bool:
 			_table.save_progress()
 		"load":
 			_table.load_progress()
+		"buy_gold":
+			_table.buy_gold(int(command.get("gold", 0)))
+		"sell_gold":
+			_table.sell_gold(int(command.get("gold", 0)))
+		"pay_dealer":
+			_table.pay_dealer(int(command.get("gold", 0)))
+		"borrow":
+			_table.borrow_marker()
+		"repay":
+			_table.repay_marker(int(command.get("index", -1)))
+		"sleep":
+			_table.sleep()
 		_:
 			return false
 	return true

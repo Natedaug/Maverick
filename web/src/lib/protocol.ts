@@ -37,7 +37,31 @@ export interface Snapshot {
 
 export type RivalTiming = "tank" | "snap" | "normal" | "";
 
+/** Milestone 4 economy, all values computed by Godot (Svelte does no money math). */
+export interface Economy {
+  gold: number;
+  day: number;
+  season_days: number;
+  /** Silver per gold at today's town rate, before the exchange fee. */
+  gold_rate: number;
+  /** Exact prices for preset amounts, fee included. */
+  gold_quotes: { gold: number; buy_silver: number; sell_silver: number }[];
+  max_gold_affordable: number;
+  dealer_start_gold: number;
+  dealer_owed_gold: number;
+  dealer_due_day: number;
+  dealer_overdue: boolean;
+  markers: { taken_day: number; repay_silver: number; days_until_called: number }[];
+  marker_silver: number;
+  marker_terms: { early_silver: number; late_silver: number; early_days: number; called_at_days: number };
+  can_borrow: boolean;
+  barred: boolean;
+  has_claim_deed: boolean;
+  claim_income_silver: number;
+}
+
 export interface Status {
+  /** Silver. */
   wallet_balance: number;
   wallet_units_per_chip: number;
   town_state: string;
@@ -50,6 +74,7 @@ export interface Status {
   rival_kempt: boolean;
   rival_timing: RivalTiming;
   hand_settled: boolean;
+  economy: Economy;
 }
 
 export type Phase = "" | "reveal_cards" | "settling" | "hand_over";
@@ -70,7 +95,11 @@ export type Command =
   | { type: "next_hand" }
   | { type: "leave" }
   | { type: "save" }
-  | { type: "load" };
+  | { type: "load" }
+  | { type: "buy_gold" | "sell_gold" | "pay_dealer"; gold: number }
+  | { type: "borrow" }
+  | { type: "repay"; index: number }
+  | { type: "sleep" };
 
 export function isSeated(state: TableState | null): state is TableState & { snapshot: Snapshot } {
   return !!state && Array.isArray((state.snapshot as Snapshot).seats) && (state.snapshot as Snapshot).seats.length >= 2;

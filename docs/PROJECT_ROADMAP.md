@@ -9,7 +9,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 778 checks across 17 headless test scripts pass (Godot 4.7.2), including
+  All 819 checks across 17 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
@@ -118,7 +118,7 @@ weights. See the [integration review](FRONTIER_INTEGRATION_REVIEW.md).
 **Exit when:** an event from one hand changes this rival's behavior/read in a
 later hand, and the player can learn and act on the tell fairly.
 
-### 4. First connected story slice — **working; step 1 of 5 done**
+### 4. First connected story slice — **working; steps 1–2 of 5 done**
 
 Connect travel/arrival, the hub saloon, the rival, poker stakes, one town-state
 change, one property/debt consequence, and a short Crown confrontation.
@@ -130,8 +130,12 @@ Build order, each step tested before the next:
    `Ledger` (The Dealer's marker, House Line markers, claim deed), and save
    format V3 (V1/V2 still load). `tests/test_campaign_economy.gd`, 53 checks.
    Not yet wired into the table or UI.
-2. Bridge and Svelte screens: wallet/debt display, assay office, sleeping, and
-   the House Line at the Rusty Spur.
+2. **Done 2026-11-04.** Bridge and Svelte screens: the header shows silver,
+   gold, and the day; away from the table, a town screen holds the Rusty Spur
+   buy-in, The Dealer's marker (pay in gold), the assay office (exact quotes
+   from Godot), the House Line (borrow/repay; barred blocks buy-in), and the
+   boarding house (sleep). New games start with 1,000 silver; default buy-in
+   500. `test_web_bridge.gd` drives the town commands through JSON.
 3. The drifter stakes his deed in a big hand (rival + property).
 4. The Gilded Riverboat confrontation (Crown) and the day-14 deadline.
 5. Arrival in Devil's Draw tying it together; owner playtest.

@@ -1,6 +1,6 @@
 <script lang="ts">
   import GodotHost from "./components/GodotHost.svelte";
-  import BuyIn from "./components/BuyIn.svelte";
+  import Town from "./components/Town.svelte";
   import Table from "./components/Table.svelte";
   import { game } from "./lib/bridge.svelte";
   import { formatChips } from "./lib/cards";
@@ -44,9 +44,10 @@
     </div>
     {#if view}
       <dl class="ledger">
-        <div><dt>Wallet</dt><dd>{formatChips(view.status.wallet_balance)}</dd></div>
+        <div><dt>Silver</dt><dd>{formatChips(view.status.wallet_balance)}</dd></div>
+        <div><dt>Gold</dt><dd>{formatChips(view.status.economy.gold)}</dd></div>
+        <div><dt>Day</dt><dd>{view.status.economy.day}<span class="of">{" / "}{view.status.economy.season_days}</span></dd></div>
         <div><dt>Town</dt><dd>{view.status.town_state}</dd></div>
-        <div><dt>Reputation</dt><dd>{view.status.reputation}</dd></div>
       </dl>
       <div class="menu">
         <button onclick={() => game.send({ type: "save" })}>Save</button>
@@ -100,7 +101,7 @@
     {:else if isSeated(view)}
       <Table {view} />
     {:else}
-      <BuyIn {view} />
+      <Town {view} />
     {/if}
   </main>
 </div>
@@ -167,6 +168,11 @@
     font-size: var(--size-status);
     font-weight: 700;
     text-transform: capitalize;
+  }
+
+  .of {
+    font-weight: 400;
+    color: var(--muted);
   }
 
   .menu {

@@ -8,6 +8,9 @@ extends Control
 ## back through the public commands below (via WebBridge in the browser).
 ##   buy_in(chips)  player_action(action, amount)  next_hand()
 ##   leave_table()  save_progress()  load_progress()
+## Town commands (Milestone 4 economy; only while not seated at the table):
+##   buy_gold(n)  sell_gold(n)  pay_dealer(gold)  borrow_marker()
+##   repay_marker(index)  sleep()
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -36,11 +39,11 @@ const TABLE_ID := "rusty_spur"
 ## Keys: snapshot (empty when unseated), message, history, status, phase.
 signal state_changed(state: Dictionary)
 
-@export var starting_wallet_balance: int = 5000
-@export var default_buy_in_chips: int = 1000
+## Starting silver (owner decision 2026-11-04: arrive with 1,000 silver).
+@export var starting_wallet_balance: int = 1000
+@export var default_buy_in_chips: int = 500
 @export var save_path: String = SAVE_PATH
-## Prototype default only. Change in the Inspector; the currency exchange rate
-## remains undecided and this value does not establish canon.
+## Silver per chip at the Rusty Spur (owner decision 2026-11-04: chips at par).
 @export_range(0.01, 100.0, 0.01) var wallet_units_per_chip: float = 1.0
 
 var _rng := RandomNumberGenerator.new()
@@ -52,6 +55,7 @@ var _town_state: TownState
 var _table_reputation: TableReputation
 var _save_system := SaveSystem.new()
 var _rival_memory := RivalMemory.new()
+var _campaign := Campaign.new()
 var _last_message := "Welcome to the Rusty Spur. Buy in when you're ready."
 var _history: Array[String] = []
 var _hand_settled := false
@@ -92,13 +96,17 @@ func _initialize_world_data() -> void:
 	_town_state.town_id = TOWN_ID
 	_table_reputation = TableReputation.new()
 	_table_reputation.table_id = TABLE_ID
-	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
-		_last_message = "Your saved Rusty Spur record is ready. Buy in to take a seat."
+	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign):
+		_last_message = "Your saved game is ready. Day %d in Devil's Draw." % _campaign.day
 	else:
-		_last_message = "A new wallet is ready. Buy in to take a seat."
+		_last_message = "You ride into Devil's Draw with 1,000 silver and a marker: " \
+			+ "you owe The Dealer 250 gold by day 14."
 
 func buy_in(chip_amount: int) -> void:
 	if _session != null:
+		return
+	if _campaign.ledger.barred:
+		_set_message("The House won't seat you until your called marker is paid.")
 		return
 	if chip_amount <= 0:
 		_set_message("Choose a positive buy-in.")
@@ -312,8 +320,8 @@ func save_progress() -> void:
 		return
 	if _session != null:
 		_end_session("Table closed for saving.")
-	if _save_system.save_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
-		_set_message("Rusty Spur progress saved.")
+	if _save_system.save_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign):
+		_set_message("Progress saved.")
 	else:
 		_set_message("Could not write the save file.")
 
@@ -325,10 +333,132 @@ func load_progress() -> void:
 		return
 	if _session != null:
 		_end_session("Table closed before loading.")
-	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory):
-		_set_message("Saved Rusty Spur progress loaded. Buy in when ready.")
+	if _save_system.load_game(_wallet, _town_state, _table_reputation, save_path, _rival_memory, _campaign):
+		_set_message("Saved game loaded. Day %d in Devil's Draw." % _campaign.day)
 	else:
 		_set_message("No readable save file was found.")
+
+# --- Town commands (Milestone 4 economy) ---
+
+## Town business happens away from the table.
+func _in_town() -> bool:
+	if _session != null:
+		_set_message("Leave the table first.")
+		return false
+	return true
+
+func buy_gold(gold: int) -> void:
+	if not _in_town():
+		return
+	var cost := AssayOffice.quote_buy(_town_state, gold)
+	if AssayOffice.buy_gold(_wallet, _town_state, gold):
+		_town_event("The assay office weighs out %d gold for %s silver." % [gold, _format_amount(cost)])
+	else:
+		_set_message("You don't have the silver for that much gold.")
+
+func sell_gold(gold: int) -> void:
+	if not _in_town():
+		return
+	var proceeds := AssayOffice.quote_sell(_town_state, gold)
+	if AssayOffice.sell_gold(_wallet, _town_state, gold):
+		_town_event("You sell %d gold for %s silver." % [gold, _format_amount(proceeds)])
+	else:
+		_set_message("You don't have that much gold.")
+
+func pay_dealer(gold: int) -> void:
+	if not _in_town():
+		return
+	var ledger := _campaign.ledger
+	if ledger.pay_dealer(_wallet, gold):
+		if ledger.dealer_owed_gold == 0:
+			_town_event("You send %d gold to The Dealer. The marker is paid in full." % gold)
+		else:
+			_town_event("You send %d gold to The Dealer. %d gold still owed." % [gold, ledger.dealer_owed_gold])
+	else:
+		_set_message("You need the gold in hand, and no more than you owe.")
+
+func borrow_marker() -> void:
+	if not _in_town():
+		return
+	if _campaign.ledger.borrow(_wallet, _campaign.day):
+		_town_event("The barkeep writes you a marker for %d silver." % Ledger.MARKER_SILVER)
+	elif _campaign.ledger.barred:
+		_set_message("The House won't lend to you until your called marker is paid.")
+	else:
+		_set_message("The House won't carry more than %d markers." % Ledger.MAX_MARKERS)
+
+func repay_marker(index: int) -> void:
+	if not _in_town():
+		return
+	var ledger := _campaign.ledger
+	if index < 0 or index >= ledger.markers.size():
+		return
+	var cost := ledger.repay_cost(index, _campaign.day)
+	if ledger.repay(_wallet, index, _campaign.day):
+		_town_event("You pay off a marker for %s silver." % _format_amount(cost))
+	else:
+		_set_message("You need %s silver to pay off that marker." % _format_amount(cost))
+
+## Sleep at the boarding house; a new day begins.
+func sleep() -> void:
+	if not _in_town():
+		return
+	var events := _campaign.sleep(_wallet)
+	var lines: Array[String] = ["Day %d. You wake at the boarding house." % _campaign.day]
+	for event in events:
+		match event:
+			"claim_income":
+				lines.append("Your claim pays %d silver." % Ledger.CLAIM_INCOME_SILVER)
+			"deed_seized":
+				lines.append("The House called an old marker and took your claim deed.")
+			"barred":
+				lines.append("The House called an old marker. You're barred from the tables until it's paid.")
+			"dealer_overdue":
+				lines.append("The Dealer's marker is past due. Word travels fast downriver.")
+	if _campaign.day == _campaign.ledger.dealer_due_day and _campaign.ledger.dealer_owed_gold > 0:
+		lines.append("The Dealer's marker is due today.")
+	_town_event(" ".join(lines))
+
+func _town_event(message: String) -> void:
+	_record_history(message)
+	_set_message(message)
+
+func _economy_status() -> Dictionary:
+	var ledger := _campaign.ledger
+	var markers: Array = []
+	for i in range(ledger.markers.size()):
+		markers.append({
+			taken_day = ledger.markers[i],
+			repay_silver = ledger.repay_cost(i, _campaign.day),
+			days_until_called = ledger.markers[i] + Ledger.CALLED_AT_DAYS - _campaign.day,
+		})
+	var gold_quotes: Array = []
+	for amount in [1, 5, 10, 25, 50]:
+		gold_quotes.append({gold = amount, buy_silver = AssayOffice.quote_buy(_town_state, amount),
+			sell_silver = AssayOffice.quote_sell(_town_state, amount)})
+	var max_buy := 0
+	while AssayOffice.quote_buy(_town_state, max_buy + 1) <= _wallet.balance:
+		max_buy += 1
+	return {
+		gold = _wallet.gold,
+		day = _campaign.day,
+		season_days = Campaign.SEASON_DAYS,
+		gold_rate = AssayOffice.rate(_town_state),
+		gold_quotes = gold_quotes,
+		max_gold_affordable = max_buy,
+		dealer_start_gold = Ledger.DEALER_START_GOLD,
+		dealer_owed_gold = ledger.dealer_owed_gold,
+		dealer_due_day = ledger.dealer_due_day,
+		dealer_overdue = ledger.dealer_overdue(_campaign.day),
+		markers = markers,
+		marker_silver = Ledger.MARKER_SILVER,
+		marker_terms = {early_silver = Ledger.REPAY_EARLY_SILVER, late_silver = Ledger.REPAY_LATE_SILVER,
+			early_days = Ledger.EARLY_DAYS, called_at_days = Ledger.CALLED_AT_DAYS},
+		can_borrow = ledger.can_borrow(),
+		barred = ledger.barred,
+		has_claim_deed = ledger.has_claim_deed,
+		claim_income_silver = Ledger.CLAIM_INCOME_SILVER,
+	}
 
 func _set_message(message: String) -> void:
 	_last_message = message
@@ -345,11 +475,12 @@ func _render() -> void:
 		reputation = _table_reputation.get_label(),
 		session_active = _session != null,
 		buy_in_chips = default_buy_in_chips,
-		can_afford_buy_in = wallet_units_per_chip > 0.0 \
+		can_afford_buy_in = wallet_units_per_chip > 0.0 and not _campaign.ledger.barred \
 			and _wallet.get_balance() >= _wallet_cost(default_buy_in_chips),
 		rival_kempt = _rival_memory.get_memory(str(PLAYER_SEAT)).kempt,
 		rival_timing = _rival_timing,
 		hand_settled = _hand_settled,
+		economy = _economy_status(),
 	}
 	var phase := ""
 	if _opening_reveal_pending:

@@ -42,6 +42,42 @@ func _on_sent(json: String) -> void:
 	if typeof(parsed) == TYPE_DICTIONARY:
 		_last = parsed
 
+func _eco() -> Dictionary:
+	return _last.get("status", {}).get("economy", {})
+
+## Milestone 4 town business, entirely through JSON as the page sends it.
+func _test_town_commands() -> void:
+	var eco := _eco()
+	_check(int(eco.get("day", 0)) == 1 and int(eco.get("dealer_owed_gold", 0)) == 250,
+		"status carries day 1 and The Dealer's 250 gold")
+	_check(int(eco.get("gold_rate", 0)) == 20 or int(eco.get("gold_rate", 0)) == 24 \
+		or int(eco.get("gold_rate", 0)) == 18, "status carries the gold rate")
+	_check((eco.get("gold_quotes", []) as Array).size() == 5, "status carries exact gold quotes")
+	var silver := int(_last.status.wallet_balance)
+	var quote := int(eco.gold_quotes[1].buy_silver)
+	_check(_send({type = "buy_gold", gold = 5}), "buy_gold accepted")
+	_check(int(_eco().gold) == 5 and int(_last.status.wallet_balance) == silver - quote,
+		"bought 5 gold at the quoted price")
+	_check(_send({type = "pay_dealer", gold = 5}), "pay_dealer accepted")
+	_check(int(_eco().dealer_owed_gold) == 245 and int(_eco().gold) == 0, "paid The Dealer 5 gold")
+	_check(_send({type = "borrow"}), "borrow accepted")
+	_check((_eco().markers as Array).size() == 1 and int(_eco().markers[0].repay_silver) == 600,
+		"one marker, 600 to repay this week")
+	_check(_send({type = "sleep"}), "sleep accepted")
+	_check(int(_eco().day) == 2 and str(_last.message).begins_with("Day 2"), "a new day")
+	for i in range(14):
+		_send({type = "sleep"})
+	_check(bool(_eco().barred) and int(_eco().day) == 16, "an unpaid marker is called: barred")
+	_check(bool(_eco().dealer_overdue), "The Dealer's marker is overdue after day 14")
+	var balance_before := int(_last.status.wallet_balance)
+	_send({type = "buy_in", chips = 100})
+	_check(_last.get("snapshot", {}).is_empty() and int(_last.status.wallet_balance) == balance_before,
+		"barred: the House refuses a seat")
+	_check(_send({type = "repay", index = 0}), "repay accepted")
+	_check(not bool(_eco().barred) and (_eco().markers as Array).is_empty(), "paying the marker lifts the bar")
+	_check(_send({type = "save"}) and _send({type = "sleep"}) and _send({type = "load"}), "save, sleep, load")
+	_check(int(_eco().day) == 16, "load restores the day")
+
 func _seats() -> Array:
 	return _last.get("snapshot", {}).get("seats", [])
 
@@ -55,6 +91,7 @@ func _run() -> void:
 		DirAccess.remove_absolute(SAVE_PATH)
 	var table: PokerTable = TABLE_SCENE.instantiate()
 	table.save_path = SAVE_PATH
+	table.starting_wallet_balance = 5000
 	root.add_child(table)
 	await process_frame
 	_check(not WebBridge.host_present(), "no browser host when running headless")
@@ -104,6 +141,8 @@ func _run() -> void:
 	_check(FileAccess.file_exists(SAVE_PATH), "save written")
 	_check(_send({type = "load"}), "load accepted")
 	_check(int(_last.status.wallet_balance) == wallet_after_leave, "load restores the wallet")
+
+	_test_town_commands()
 
 	print("PASSES: %d" % _passes)
 	print("FAILURES: %d" % _failures)
