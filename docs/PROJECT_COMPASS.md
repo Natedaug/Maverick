@@ -60,7 +60,13 @@ details data-driven until settled.
 | Decision | Still open |
 |---|---|
 | Product title | Whether to retain Texas Hold'em Frontier, adopt Dust & Decisions, or choose another title |
-| Currency details | Names/units for wallet currency, currency exchange, loan terms, repayment schedule, property valuation, and how reputation is represented |
+| Currency details | Mostly settled 2026-11-04 (silver/gold, floating rate, debts, deed); still open: how reputation is represented, and final names for the Crown and drifter |
+
+**Decision record — 2026-11-04 (Milestone 4 economy and story):** silver and
+gold currencies with a town-driven floating exchange rate; a day passes on
+sleep; the player arrives owing The Dealer 250 gold due day 14; one property,
+the drifter's claim deed, won at the table; the first Crown is the Gilded
+Riverboat's owner. Numbers and working names: `MILESTONE_4_PROPOSALS.md`.
 
 **Decision record — 2026-11-04:** kempt/unkempt is the rival's *appearance*
 (clean vs. dirty), not betting rhythm. In code it is one bool. Tilt from bad
