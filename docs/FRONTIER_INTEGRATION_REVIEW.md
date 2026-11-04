@@ -141,9 +141,10 @@ milestone.
    autoload makes tests, save/load, and multiple runs harder. Prefer explicit
    world/session state passed to systems; reserve autoloads for a few true
    coordinators.
-6. **UI is not portable source code.** Frontier's Svelte components are useful
-   interaction references, but should be recreated as Godot scenes/components
-   using Maverick's living design system, not copied or embedded into runtime.
+6. **UI is not portable source code.** *Superseded 2026-11-03:* the owner
+   chose a Svelte interface around a Godot web build (see the compass).
+   Frontier's Svelte components may be adapted into Maverick's web UI; its
+   TypeScript rules/logic still may not.
 7. **History and generated files.** Frontier now preserves its TypeScript source
    and tests in local Git and ignores `dist/` and `node_modules/`. It has no
    remote yet. Do not migrate dependencies or generated build output into

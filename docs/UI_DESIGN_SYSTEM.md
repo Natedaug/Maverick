@@ -14,6 +14,13 @@ and current prototype into shared visual and interaction decisions. It is a
 guide, not a freeze: update its version and rationale when playtests or new game
 systems teach us something useful. Keep it aligned with the [project work log](POKER_ENGINE_WORKLOG.md).
 
+## Implementation surface — 2026-11-03
+
+The owner chose a Svelte interface around a Godot web build (see the compass).
+These principles, tokens, readability targets and acceptance viewports now
+apply to `web/`; the tokens live in `web/src/app.css`. The Godot-drawn
+`PokerTableUI` is kept only as a fallback while the spike is evaluated.
+
 ## Product context
 
 The long-term game is a top-down western RPG set around Devil's Draw and Split

@@ -22,6 +22,10 @@ const SAVE_PATH := "user://maverick_save.txt"
 const TOWN_ID := "devils_draw"
 const TABLE_ID := "rusty_spur"
 
+## Full table state after every change, for alternate front ends (WebBridge).
+## Keys: snapshot (empty when unseated), message, history, status, phase.
+signal state_changed(state: Dictionary)
+
 @export var starting_wallet_balance: int = 5000
 @export var default_buy_in_chips: int = 1000
 @export var save_path: String = SAVE_PATH
@@ -47,6 +51,8 @@ var _continuation_running := false
 var _opening_reveal_pending := false
 var _settlement_reveal_pending := false
 var _runout_visible_board_cards := -1
+var _rival_timing := ""  # "tank" / "snap" / "normal" while the rival thinks
+var _web_bridge: WebBridge
 
 func _ready() -> void:
 	_rng.randomize()
@@ -57,6 +63,12 @@ func _ready() -> void:
 	table_ui.leave_table_requested.connect(_on_leave_table_requested)
 	table_ui.save_requested.connect(_on_save_requested)
 	table_ui.load_requested.connect(_on_load_requested)
+	if WebBridge.host_present():
+		# A Svelte host page draws the interface; Godot keeps running the game.
+		_web_bridge = WebBridge.new()
+		add_child(_web_bridge)
+		_web_bridge.attach(self, table_ui)
+		table_ui.visible = false
 	_render()
 
 func _initialize_world_data() -> void:
@@ -188,6 +200,7 @@ func _continue_hand() -> void:
 			return
 		var timing := _ai.pick_timing()
 		_rival_memory.observe_timing(timing)
+		_rival_timing = timing
 		var think_seconds := AI_THINK_SECONDS
 		match timing:
 			"tank":
@@ -203,10 +216,11 @@ func _continue_hand() -> void:
 		if _session == null or _hand_settled:
 			_continuation_running = false
 			return
+		_rival_timing = ""
 		var rival_facing_bet := _call_amount() > 0
 		var decision := _ai.decide_session(_session)
 		_rival_memory.observe_action(RIVAL_SEAT, decision.action, rival_facing_bet)
-		_last_message = "The drifter %s." % _describe_action(decision.action, decision.amount)
+		_last_message = "The drifter %s." % _describe_action(decision.action, decision.amount, true)
 		_record_history(_last_message)
 		_render()
 		await _pause_hand(AI_ACTION_REVEAL_SECONDS)
@@ -316,9 +330,20 @@ func _render() -> void:
 			and _wallet.get_balance() >= _wallet_cost(default_buy_in_chips),
 		rival_tell = _rival_memory.get_memory(str(PLAYER_SEAT)).get_tell_state(),
 		rival_label = _rival_memory.get_memory(str(PLAYER_SEAT)).get_label(),
+		rival_timing = _rival_timing,
+		hand_settled = _hand_settled,
 	}
+	var phase := ""
+	if _opening_reveal_pending:
+		phase = "reveal_cards"
+	elif _settlement_reveal_pending:
+		phase = "settling"
+	elif _session != null and _hand_settled:
+		phase = "hand_over"
 	if _session == null:
 		table_ui.render({}, _last_message, _history, status)
+		state_changed.emit({snapshot = {}, message = _last_message,
+			history = _history.duplicate(), status = status, phase = phase})
 	else:
 		var snapshot := _session.snapshot(0)
 		if _opening_reveal_pending:
@@ -334,6 +359,8 @@ func _render() -> void:
 			var board: Array = snapshot.get("board", [])
 			snapshot["board"] = board.slice(0, _runout_visible_board_cards)
 		table_ui.render(snapshot, _last_message, _history, status)
+		state_changed.emit({snapshot = snapshot, message = _last_message,
+			history = _history.duplicate(), status = status, phase = phase})
 
 func _wallet_cost(chips: int) -> int:
 	return int(round(float(chips) * wallet_units_per_chip))
@@ -357,19 +384,21 @@ func _player_prompt() -> String:
 			return "Your turn. %s chips to call." % _format_amount(int(option.get("amount", 0)))
 	return "Your turn. Check or open the betting."
 
-func _describe_action(action: int, target: int) -> String:
+## `third_person` gives "folds"/"bets" for the drifter instead of "fold"/"bet".
+func _describe_action(action: int, target: int, third_person: bool = false) -> String:
+	var s := "s" if third_person else ""
 	match action:
 		PokerBetting.Action.FOLD:
-			return "fold"
+			return "fold" + s
 		PokerBetting.Action.CHECK:
-			return "check"
+			return "check" + s
 		PokerBetting.Action.CALL:
-			return "call"
+			return "call" + s
 		PokerBetting.Action.BET:
-			return "bet to %s" % _format_amount(target)
+			return "bet%s %s" % [s, _format_amount(target)]
 		PokerBetting.Action.RAISE:
-			return "raise to %s" % _format_amount(target)
-	return "act"
+			return "raise%s to %s" % [s, _format_amount(target)]
+	return "act" + s
 
 func _street_name(street: int) -> String:
 	match street:

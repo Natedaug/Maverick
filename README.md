@@ -30,10 +30,19 @@ next major systems.
 - Godot 4.3+ (stable)
 
 ## Run
+The game runs in a browser: a Svelte interface (`web/`) hosts a Godot web
+build. Godot owns all rules and game state; Svelte draws the interface and
+sends player intents over a JSON bridge (`src/web/web_bridge.gd`).
+
 ```bash
-godot --path .          # open editor
-godot --headless --quit # verify project loads cleanly 
+cd web
+npm install             # first time only
+npm run godot:export    # rebuild after any Godot/GDScript change
+npm run dev             # open http://localhost:5174
 ```
+
+Requires Godot 4.7.2 web export templates (Editor → Manage Export Templates).
+`godot --path .` still runs the older Godot-drawn table directly.
 
 ## Poker engine checks
 ```bash

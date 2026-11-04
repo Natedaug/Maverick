@@ -9,7 +9,7 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **Playable poker:** one human versus one AI; Texas Hold'em hand progression,
   legal actions, showdown, side pots, stack carry-over, and button rotation work.
 - **Engine confidence:** `PokerSession` is the live table's multi-hand authority.
-  All 661 checks across 15 headless test scripts pass (Godot 4.7.2), including
+  All 721 checks across 16 headless test scripts pass (Godot 4.7.2), including
   a Rusty Spur flow from buy-in through two hands, cash-out, and save/load. The
   flow test had silently broken when timed reveals were added; it now waits on
   table state instead of assuming synchronous play.
@@ -47,6 +47,17 @@ Reorder it when playtests or owner decisions change the plan; record why.
   confirmation of save behavior in the installed Mac environment.
 
 ## Immediate focus
+
+0. **Svelte UI spike (owner decision 2026-11-03) — working; owner playtest
+   pending.** The Rusty Spur table runs in `web/` (Svelte 5 + Vite) around a
+   Godot web build, over `WebBridge` JSON messages. Automated Chrome runs
+   bought in, played hands to showdown, saw tank/snap and a KEMPT/UNKEMPT
+   read develop naturally, and fit 1440×900, 1280×800, 1152×648 and 800×600
+   without scrolling (390×844 scrolls with the action dock pinned). Exit when
+   the owner can buy in, play several hands, see the rival's tell, and
+   leave/save from the Svelte table and prefers it. The old Godot-drawn table
+   still has layout bugs (collapsed seat text, clipped message); leave them
+   unless the spike is abandoned.
 
 1. Owner playthrough: check visual hierarchy, sounds, wager controls, multi-hand
    settlement, save/load, and leaving/cash-out. Record any concrete defects.

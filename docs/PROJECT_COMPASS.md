@@ -18,12 +18,19 @@ memorable rival, a meaningful stake, and a lasting consequence.
 
 ## Approved direction
 
-- **Runtime:** Godot 4 with GDScript is the production game.
+- **Runtime:** Godot 4 with GDScript is the production game runtime: rules,
+  world, AI, memory, economy, and save state.
+- **Interface (2026-11-03):** the player-facing UI is a Svelte app that hosts
+  a Godot web build. Godot owns game state and renders the world canvas;
+  Svelte renders interface screens (starting with the poker table) and talks
+  to Godot through a JSON message bridge (`snapshot` out, `{action, amount}`
+  in). Svelte never decides game rules.
 - **Poker rules:** `addons/poker_engine/` is the single rules authority. AI, UI,
   world, and story systems consume it through public action/query APIs.
-- **Frontier's role:** its `Agent.md`, system prototypes, and Svelte interface
-  are design references. Adopt ideas selectively and implement them in Maverick;
-  do not merge two runtimes or maintain duplicate poker rules.
+- **Frontier's role:** its `Agent.md` and system prototypes are design
+  references. Its Svelte components may now be adapted into Maverick's web UI.
+  Its TypeScript poker engine and game logic stay out: one rules engine, in
+  Godot.
 - **Design evolution:** `docs/UI_DESIGN_SYSTEM.md` is the evolving UI standard.
   Revise it from playtest feedback and apply it to new functional components.
 - **Scope discipline:** prove one connected town/poker/economy/NPC slice before
@@ -54,6 +61,11 @@ details data-driven until settled.
 |---|---|
 | Product title | Whether to retain Texas Hold'em Frontier, adopt Dust & Decisions, or choose another title |
 | Currency details | Names/units for wallet currency, currency exchange, loan terms, repayment schedule, property valuation, and how reputation is represented |
+
+**Decision record — 2026-11-03:** after seeing the Godot-drawn table, the owner
+chose a Svelte interface around a Godot web build (option A of three: Svelte
+shell + Godot web build; Svelte + windowless Godot server; all-Godot UI). First
+step is a spike: the poker table in Svelte driving the existing engine.
 
 **Decision record — 2026-11-02:** the owner approved the first-slice 2D
 presentation, world hierarchy, and table-chip/wallet/debt boundary above. The
