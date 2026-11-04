@@ -19,7 +19,8 @@ systems teach us something useful. Keep it aligned with the [project work log](P
 The owner chose a Svelte interface around a Godot web build (see the compass).
 These principles, tokens, readability targets and acceptance viewports now
 apply to `web/`; the tokens live in `web/src/app.css`. The Godot-drawn
-`PokerTableUI` is kept only as a fallback while the spike is evaluated.
+`PokerTableUI` was deleted on 2026-11-04 at the owner's request; there is no
+Godot-drawn fallback.
 
 ## Product context
 

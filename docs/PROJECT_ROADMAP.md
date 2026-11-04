@@ -21,12 +21,15 @@ Reorder it when playtests or owner decisions change the plan; record why.
   looks: tilt from bad beats makes him unkempt (shown by his portrait), and an
   unkempt drifter plays loose (calls lighter, bluffs more, ≤15%,
   probabilistic). Tank/snap pauses are now flavor only. See contract §4–§5.
-- **UI:** the latest responsive pass has larger type, adjacent player/card
-  groups, visible chip stacks and pot, a smooth legal wager slider with
-  fractional/pot/all-in presets, card/chip motion, synthesized cues, mute, and
-  reduced-motion controls. Geometry was probed at five laptop/mobile sizes.
-  Rendered pixel/audio quality and hands-on interaction still need the owner's
-  playthrough. Keep the AI's assertive style.
+- **UI:** the Svelte table (`web/`) is the only interface; the Godot-drawn
+  table was deleted on 2026-11-04. It has large type, adjacent seat/card
+  groups, chip stacks and pot, a legal wager slider with presets, card motion,
+  the drifter's portrait tell, and respects the OS reduced-motion setting.
+  Not yet ported from the deleted Godot table: synthesized sound cues, a mute
+  button, and an in-game reduced-motion toggle. Keep the AI's assertive style.
+- **Web performance:** Godot runs with low-processor mode and a hidden 64×64
+  canvas, since Svelte draws everything. Restore a full canvas when Godot gets
+  a world view.
 - **Hardware:** the project uses Godot's Compatibility renderer after Vulkan
   pipeline failures on the owner's Intel Mac.
 - **World/economy:** wallet, town state, table reputation, bridge, and save/load
@@ -56,9 +59,9 @@ Reorder it when playtests or owner decisions change the plan; record why.
    bought in, played hands to showdown, and fit 1440×900, 1280×800, 1152×648 and 800×600
    without scrolling (390×844 scrolls with the action dock pinned). Exit when
    the owner can buy in, play several hands, see the rival's tell, and
-   leave/save from the Svelte table and prefers it. The old Godot-drawn table
-   still has layout bugs (collapsed seat text, clipped message); leave them
-   unless the spike is abandoned.
+   leave/save from the Svelte table and prefers it. On 2026-11-04 the owner
+   chose to delete the old Godot-drawn table (`PokerTableUI`, `PokerCardView`);
+   `PokerTable` now exposes public commands that `WebBridge` calls directly.
 
 1. Owner playthrough: check visual hierarchy, sounds, wager controls, multi-hand
    settlement, save/load, and leaving/cash-out. Record any concrete defects.

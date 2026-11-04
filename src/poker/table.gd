@@ -1,7 +1,13 @@
 class_name PokerTable
 extends Control
-## Player-facing Rusty Spur table controller. PokerSession owns multi-hand
-## rules and stable seat ids; world services only observe its settlements.
+## Rusty Spur table controller. PokerSession owns multi-hand rules and stable
+## seat ids; world services only observe its settlements.
+##
+## The table has no Godot-drawn interface. The Svelte app in web/ draws it:
+## every change is broadcast through `state_changed`, and player intents come
+## back through the public commands below (via WebBridge in the browser).
+##   buy_in(chips)  player_action(action, amount)  next_hand()
+##   leave_table()  save_progress()  load_progress()
 
 const SMALL_BLIND := 10
 const BIG_BLIND := 20
@@ -37,8 +43,6 @@ signal state_changed(state: Dictionary)
 ## remains undecided and this value does not establish canon.
 @export_range(0.01, 100.0, 0.01) var wallet_units_per_chip: float = 1.0
 
-@onready var table_ui: PokerTableUI = $PokerTableUI
-
 var _rng := RandomNumberGenerator.new()
 var _session: PokerSession
 var _bridge: EconomyBridge
@@ -61,19 +65,25 @@ var _web_bridge: WebBridge
 func _ready() -> void:
 	_rng.randomize()
 	_initialize_world_data()
-	table_ui.player_action_requested.connect(_on_player_action_requested)
-	table_ui.next_hand_requested.connect(_on_next_hand_requested)
-	table_ui.buy_in_requested.connect(_on_buy_in_requested)
-	table_ui.leave_table_requested.connect(_on_leave_table_requested)
-	table_ui.save_requested.connect(_on_save_requested)
-	table_ui.load_requested.connect(_on_load_requested)
 	if WebBridge.host_present():
-		# A Svelte host page draws the interface; Godot keeps running the game.
+		# The Svelte host page draws the interface; Godot runs the game.
 		_web_bridge = WebBridge.new()
 		add_child(_web_bridge)
-		_web_bridge.attach(self, table_ui)
-		table_ui.visible = false
+		_web_bridge.attach(self)
+	elif DisplayServer.get_name() != "headless":
+		_show_browser_notice()
 	_render()
+
+## Opened outside the browser (e.g. the Godot editor's Play button).
+func _show_browser_notice() -> void:
+	var notice := Label.new()
+	notice.text = "Maverick's interface runs in the browser.\n\n" \
+		+ "cd web && npm run godot:export && npm run dev\nthen open http://localhost:5174"
+	notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	notice.add_theme_font_size_override("font_size", 22)
+	notice.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(notice)
 
 func _initialize_world_data() -> void:
 	_wallet = Wallet.new()
@@ -87,7 +97,7 @@ func _initialize_world_data() -> void:
 	else:
 		_last_message = "A new wallet is ready. Buy in to take a seat."
 
-func _on_buy_in_requested(chip_amount: int) -> void:
+func buy_in(chip_amount: int) -> void:
 	if _session != null:
 		return
 	if chip_amount <= 0:
@@ -133,7 +143,7 @@ func _start_first_hand() -> void:
 	_last_message = "You're in. Blinds are 10 / 20."
 	_continue_hand()
 
-func _on_player_action_requested(action: int, target: int) -> void:
+func player_action(action: int, target: int) -> void:
 	if _session == null or _hand_settled or _session.current_actor() != 0:
 		return
 	var facing_bet := _call_amount() > 0
@@ -147,7 +157,7 @@ func _on_player_action_requested(action: int, target: int) -> void:
 	await _pause_hand(PLAYER_ACTION_CONFIRM_SECONDS)
 	_continue_hand()
 
-func _on_next_hand_requested() -> void:
+func next_hand() -> void:
 	if _session == null or not _hand_settled:
 		return
 	_bridge.hand_started()
@@ -257,7 +267,7 @@ func _settle_hand() -> void:
 	else:
 		var descriptions: Array[String] = []
 		for seat_id in payouts:
-			var winner_name := "You" if int(seat_id) == 0 else "The Drifter"
+			var winner_name := "You" if int(seat_id) == 0 else "The drifter"
 			descriptions.append("%s take%s %s chips" % [winner_name, "" if int(seat_id) == 0 else "s", _format_amount(int(payouts[seat_id]))])
 		_last_message = "; ".join(descriptions) + "."
 	_record_history(_last_message)
@@ -276,7 +286,7 @@ func _settle_hand() -> void:
 func _pause_hand(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
-func _on_leave_table_requested() -> void:
+func leave_table() -> void:
 	if _session == null or _settlement_reveal_pending:
 		return
 	if not _hand_settled:
@@ -294,7 +304,7 @@ func _end_session(message: String) -> void:
 	_hand_settled = false
 	_render()
 
-func _on_save_requested() -> void:
+func save_progress() -> void:
 	if _settlement_reveal_pending:
 		return
 	if _session != null and not _hand_settled:
@@ -307,7 +317,7 @@ func _on_save_requested() -> void:
 	else:
 		_set_message("Could not write the save file.")
 
-func _on_load_requested() -> void:
+func load_progress() -> void:
 	if _settlement_reveal_pending:
 		return
 	if _session != null and not _hand_settled:
@@ -325,7 +335,7 @@ func _set_message(message: String) -> void:
 	_render()
 
 func _render() -> void:
-	if not is_instance_valid(table_ui):
+	if _wallet == null:
 		return
 	var status := {
 		wallet_balance = _wallet.get_balance(),
@@ -349,7 +359,6 @@ func _render() -> void:
 	elif _session != null and _hand_settled:
 		phase = "hand_over"
 	if _session == null:
-		table_ui.render({}, _last_message, _history, status)
 		state_changed.emit({snapshot = {}, message = _last_message,
 			history = _history.duplicate(), status = status, phase = phase})
 	else:
@@ -366,7 +375,6 @@ func _render() -> void:
 		if _runout_visible_board_cards >= 0:
 			var board: Array = snapshot.get("board", [])
 			snapshot["board"] = board.slice(0, _runout_visible_board_cards)
-		table_ui.render(snapshot, _last_message, _history, status)
 		state_changed.emit({snapshot = snapshot, message = _last_message,
 			history = _history.duplicate(), status = status, phase = phase})
 

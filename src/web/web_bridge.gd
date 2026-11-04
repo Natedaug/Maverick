@@ -15,15 +15,13 @@ extends Node
 ##     {"type": "action", "action": 0-4, "amount": 0}   PokerBetting.Action
 ##     {"type": "next_hand"} | {"type": "leave"} | {"type": "save"} | {"type": "load"}
 ##
-## Commands are routed through PokerTableUI's existing signals, so the web and
-## Godot-drawn interfaces share exactly one set of table entry points.
+## Commands call PokerTable's public commands, which re-validate everything.
 
 signal state_sent(json: String)
 
 var last_state: Dictionary = {}
 
 var _table: PokerTable
-var _ui: PokerTableUI
 # JavaScriptObjects are untyped so their JS properties resolve dynamically.
 var _host = null
 var _command_callback = null  # keep a reference or JS drops it
@@ -34,9 +32,8 @@ static func host_present() -> bool:
 		return false
 	return bool(JavaScriptBridge.eval("typeof window.maverickHost === 'object'", true))
 
-func attach(table: PokerTable, ui: PokerTableUI) -> void:
+func attach(table: PokerTable) -> void:
 	_table = table
-	_ui = ui
 	_table.state_changed.connect(_on_state_changed)
 	if host_present():
 		var window = JavaScriptBridge.get_interface("window")
@@ -51,20 +48,20 @@ func handle_command(command: Dictionary) -> bool:
 			if not last_state.is_empty():
 				_send(last_state)
 		"buy_in":
-			_ui.buy_in_requested.emit(int(command.get("chips", 0)))
+			_table.buy_in(int(command.get("chips", 0)))
 		"action":
 			var action := int(command.get("action", -1))
 			if action < PokerBetting.Action.FOLD or action > PokerBetting.Action.RAISE:
 				return false
-			_ui.player_action_requested.emit(action, int(command.get("amount", 0)))
+			_table.player_action(action, int(command.get("amount", 0)))
 		"next_hand":
-			_ui.next_hand_requested.emit()
+			_table.next_hand()
 		"leave":
-			_ui.leave_table_requested.emit()
+			_table.leave_table()
 		"save":
-			_ui.save_requested.emit()
+			_table.save_progress()
 		"load":
-			_ui.load_requested.emit()
+			_table.load_progress()
 		_:
 			return false
 	return true

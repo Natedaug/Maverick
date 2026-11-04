@@ -1,6 +1,9 @@
 <script lang="ts">
   // Boots the Godot web export from /godot (built by `npm run godot:export`).
-  // The canvas sits behind the interface; it will show the world view later.
+  // Godot draws nothing yet (Svelte draws the interface), so the canvas is a
+  // fixed 64x64 and hidden; rendering a full-window canvas every frame slowed
+  // the game's own timers badly on software-rendered browsers. When Godot
+  // gets a world view, switch back to canvasResizePolicy 2 and show it.
   import { onMount } from "svelte";
 
   let { onError }: { onError: (message: string) => void } = $props();
@@ -32,7 +35,7 @@
       executable: "/godot/maverick",
       canvas,
       args: [],
-      canvasResizePolicy: 2,
+      canvasResizePolicy: 0,
       focusCanvas: false,
       ensureCrossOriginIsolationHeaders: false,
       experimentalVK: false,
@@ -42,14 +45,15 @@
   });
 </script>
 
-<canvas bind:this={canvas} id="godot-canvas" class="godot" tabindex="-1" aria-hidden="true"></canvas>
+<canvas bind:this={canvas} id="godot-canvas" class="godot" width="64" height="64" tabindex="-1" aria-hidden="true"></canvas>
 
 <style>
   .godot {
     position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
+    left: 0;
+    top: 0;
+    width: 64px;
+    height: 64px;
     z-index: 0;
     pointer-events: none;
     opacity: 0;

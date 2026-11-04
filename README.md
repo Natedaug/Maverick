@@ -42,7 +42,9 @@ npm run dev             # open http://localhost:5174
 ```
 
 Requires Godot 4.7.2 web export templates (Editor → Manage Export Templates).
-`godot --path .` still runs the older Godot-drawn table directly.
+The Godot-drawn table was removed on 2026-11-04; `godot --path .` now only
+shows a pointer to the web app. Godot's canvas is hidden in the page until
+there is a world view to draw.
 
 ## Poker engine checks
 ```bash

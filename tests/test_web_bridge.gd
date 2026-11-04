@@ -61,7 +61,7 @@ func _run() -> void:
 
 	_bridge = WebBridge.new()
 	table.add_child(_bridge)
-	_bridge.attach(table, table.get_node("PokerTableUI"))
+	_bridge.attach(table)
 	_bridge.state_sent.connect(_on_sent)
 
 	_check(not _send({type = "bogus"}), "unknown command rejected")
