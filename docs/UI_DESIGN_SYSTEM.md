@@ -22,6 +22,14 @@ apply to `web/`; the tokens live in `web/src/app.css`. The Godot-drawn
 `PokerTableUI` was deleted on 2026-11-04 at the owner's request; there is no
 Godot-drawn fallback.
 
+Sound and motion in `web/` (2026-11-04): `src/lib/sound.ts` synthesizes short
+table cues with Web Audio (ported from the deleted Godot table, plus a small
+win chime); `src/lib/cues.ts` decides cues by diffing consecutive Godot states,
+so every sound matches something visible. Settings (sound, volume, reduced
+motion) live in `src/lib/settings.svelte.ts` and are stored per browser, not in
+the game save. Reduced motion stops animations/transitions and plays one cue
+per kind instead of a staggered run. Music/ambience volumes are not built yet.
+
 ## Product context
 
 The long-term game is a top-down western RPG set around Devil's Draw and Split

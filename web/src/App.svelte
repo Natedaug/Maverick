@@ -4,12 +4,34 @@
   import Table from "./components/Table.svelte";
   import { game } from "./lib/bridge.svelte";
   import { formatChips } from "./lib/cards";
-  import { isSeated } from "./lib/protocol";
+  import { isSeated, type TableState } from "./lib/protocol";
+  import { settings } from "./lib/settings.svelte";
+  import { cuesFor } from "./lib/cues";
+  import { play, unlockAudio } from "./lib/sound";
 
   let bootError = $state("");
-  let historyOpen = $state(false);
+  let openPanel = $state<"" | "history" | "settings">("");
   const view = $derived(game.state);
+
+  // Table sounds follow confirmed state changes from Godot.
+  let previous: TableState | null = null;
+  $effect(() => {
+    const next = view;
+    if (!next) return;
+    for (const cue of cuesFor(previous, next, settings.reducedMotion)) play(cue.kind, cue.delayMs);
+    previous = next;
+  });
+
+  const toggle = (panel: "history" | "settings") => (openPanel = openPanel === panel ? "" : panel);
 </script>
+
+<svelte:window
+  onpointerdown={unlockAudio}
+  onkeydown={(e) => {
+    unlockAudio();
+    if (e.key === "Escape") openPanel = "";
+  }}
+/>
 
 <GodotHost onError={(m) => (bootError = m)} />
 
@@ -29,10 +51,33 @@
       <div class="menu">
         <button onclick={() => game.send({ type: "save" })}>Save</button>
         <button onclick={() => game.send({ type: "load" })}>Load</button>
-        <button aria-expanded={historyOpen} onclick={() => (historyOpen = !historyOpen)}>History</button>
+        <button aria-expanded={openPanel === "history"} onclick={() => toggle("history")}>History</button>
+        <button
+          class="icon"
+          aria-label="Settings"
+          title="Settings"
+          aria-expanded={openPanel === "settings"}
+          onclick={() => toggle("settings")}><span aria-hidden="true">⚙</span></button>
       </div>
-      {#if historyOpen}
-        <section class="history" aria-label="Hand history">
+      {#if openPanel === "settings"}
+        <section class="popover settings" aria-label="Settings">
+          <label class="row">
+            <span>Sound</span>
+            <input type="checkbox" role="switch" bind:checked={settings.soundOn} />
+          </label>
+          <label class="row" class:off={!settings.soundOn}>
+            <span>Volume</span>
+            <input type="range" min="0" max="1" step="0.05" bind:value={settings.volume} disabled={!settings.soundOn} />
+          </label>
+          <label class="row">
+            <span>Reduced motion</span>
+            <input type="checkbox" role="switch" bind:checked={settings.reducedMotion} />
+          </label>
+          <p class="hint">Sound never carries information you can't also see on the table.</p>
+        </section>
+      {/if}
+      {#if openPanel === "history"}
+        <section class="popover history" aria-label="Hand history">
           {#if view.history.length === 0}
             <p>No hands played yet.</p>
           {:else}
@@ -138,7 +183,7 @@
     font-size: var(--size-support);
   }
 
-  .history {
+  .popover {
     position: absolute;
     top: calc(100% + 6px);
     right: clamp(10px, 3vw, 32px);
@@ -153,6 +198,49 @@
     box-shadow: 0 12px 30px rgb(0 0 0 / 0.6);
     font-size: var(--size-support);
     color: var(--muted);
+  }
+
+  .settings {
+    display: grid;
+    gap: 12px;
+    width: min(320px, calc(100vw - 20px));
+    padding: 14px 16px;
+    color: var(--paper);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 36px;
+  }
+
+  .row.off {
+    opacity: 0.5;
+  }
+
+  .row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--brass);
+  }
+
+  .row input[type="range"] {
+    flex: 0 1 170px;
+    accent-color: var(--brass);
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .menu .icon {
+    padding: 0 12px;
+    font-size: 20px;
+    line-height: 1;
   }
 
   .history ol {
@@ -181,12 +269,14 @@
     color: #f0b48a;
   }
 
-  @media (max-width: 900px) and (min-width: 641px) {
+  @media (max-width: 1200px) and (min-width: 641px) {
     .town,
     .sep {
       display: none;
     }
+  }
 
+  @media (max-width: 900px) and (min-width: 641px) {
     header {
       gap: 12px 18px;
     }

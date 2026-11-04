@@ -69,3 +69,12 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* In-game reduced motion (Settings), defaulting to the OS preference. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+}

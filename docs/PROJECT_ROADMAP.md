@@ -24,9 +24,11 @@ Reorder it when playtests or owner decisions change the plan; record why.
 - **UI:** the Svelte table (`web/`) is the only interface; the Godot-drawn
   table was deleted on 2026-11-04. It has large type, adjacent seat/card
   groups, chip stacks and pot, a legal wager slider with presets, card motion,
-  the drifter's portrait tell, and respects the OS reduced-motion setting.
-  Not yet ported from the deleted Godot table: synthesized sound cues, a mute
-  button, and an in-game reduced-motion toggle. Keep the AI's assertive style.
+  the drifter's portrait tell, and synthesized table sounds (deal, card
+  reveal, chips, your turn, pot, win) driven by confirmed state changes. A
+  header Settings popover has sound on/off, volume, and reduced motion
+  (defaults to the OS setting; saved per browser). Sound feel still needs the
+  owner's ears. Keep the AI's assertive style.
 - **Web performance:** Godot runs with low-processor mode and a hidden 64×64
   canvas, since Svelte draws everything. Restore a full canvas when Godot gets
   a world view.
